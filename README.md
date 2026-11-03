@@ -1,3 +1,5 @@
+<img src="plugins/lbbexley/skills/brand/assets/bexley-logo.png" alt="London Borough of Bexley" width="240">
+
 # Bexley AI build harness
 
 Build London Borough of Bexley Power Platform services with an AI coding assistant, to the council's brand, accessibility and legal standards. The harness works with **Claude Code** and with **GitHub Copilot** in VS Code, for canvas apps, Power Pages sites, Copilot Studio agents, Power Automate flows, Dataverse and model-driven apps.
