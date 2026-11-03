@@ -1,0 +1,38 @@
+name: Standards check false alarm
+description: The standards check reported a problem that isn't one.
+title: "False alarm: "
+labels: ["false-alarm"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Until it's fixed, suppress the finding on that line with a reason, for example `lbbexley-ignore: canvas-contrast the text is decorative and repeated in the heading`. Never suppress personal-data findings: replace the data with fictional data instead.
+  - type: input
+    id: rule
+    attributes:
+      label: Rule
+      description: The rule id from the finding, for example canvas-target-size.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Smallest example that triggers it
+      description: A few lines of the file, with fictional data only.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it's wrong
+      description: For example, the contrast is calculated from the wrong colour, or the control isn't interactive.
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Before you submit
+      options:
+        - label: This issue contains no personal data.
+          required: true

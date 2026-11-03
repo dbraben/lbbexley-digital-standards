@@ -1,0 +1,9 @@
+{
+  "description": "Pre-election periods when extra publicity rules apply: from the notice of election to polling day, inclusive, as YYYY-MM-DD. The Digital Team adds a period when an election affecting Bexley is called and removes it afterwards. While a period is active, every session in a Bexley app repo is told about it.",
+  "periods": [],
+  "example": {
+    "name": "Example: by-election in a Bexley ward",
+    "start": "2027-03-01",
+    "end": "2027-03-25"
+  }
+}

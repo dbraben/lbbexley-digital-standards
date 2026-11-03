@@ -1,0 +1,185 @@
+# Bexley canvas screen pattern: header, main content with one form field, footer.
+# A pattern to follow, not a file to paste: keep the control versions your
+# authoring tools generate, and rename the screen and controls for your service.
+# Needs the Bexley tokens in App.Formulas (brand skill, tokens-canvas.md).
+Screens:
+  Request details Screen:
+    Properties:
+      Fill: =BexleyWhite
+      LoadingSpinnerColor: =BexleyFuchsia
+    Children:
+      - conPage:
+          Control: GroupContainer@1.3.0
+          Variant: AutoLayout
+          Properties:
+            Width: =Parent.Width
+            Height: =Parent.Height
+            LayoutDirection: =LayoutDirection.Vertical
+            LayoutOverflowY: =LayoutOverflow.Scroll
+            DropShadow: =DropShadow.None
+          Children:
+            # Header: logo and service name on white, with a fuchsia rule underneath
+            - conHeader:
+                Control: GroupContainer@1.3.0
+                Variant: AutoLayout
+                Properties:
+                  FillPortions: =0
+                  Height: =72
+                  Fill: =BexleyWhite
+                  LayoutDirection: =LayoutDirection.Horizontal
+                  LayoutAlignItems: =LayoutAlignItems.Center
+                  LayoutGap: =16
+                  PaddingLeft: =16
+                  PaddingRight: =16
+                  DropShadow: =DropShadow.None
+                Children:
+                  - imgLogo:
+                      Control: Image@2.2.3
+                      Properties:
+                        # Add the brand skill's assets/bexley-logo.png to the app's media and set Image to it (assets/README.md)
+                        AccessibleLabel: ="London Borough of Bexley"
+                        Height: =48
+                        Width: =160
+                        TabIndex: =-1
+                  - lblServiceName:
+                      Control: Label@2.5.1
+                      Properties:
+                        # The service name from AGENTS.md
+                        Text: ="Service name"
+                        Font: =BexleyFont
+                        Size: =BexleySizeH5
+                        FontWeight: =FontWeight.Bold
+                        Color: =BexleyTextBlack
+                        FillPortions: =1
+            - rectHeaderRule:
+                Control: Rectangle@2.3.0
+                Properties:
+                  FillPortions: =0
+                  Height: =8
+                  Fill: =BexleyFuchsia
+                  TabIndex: =-1
+
+            # Main content
+            - conMain:
+                Control: GroupContainer@1.3.0
+                Variant: AutoLayout
+                Properties:
+                  FillPortions: =1
+                  LayoutDirection: =LayoutDirection.Vertical
+                  LayoutGap: =16
+                  PaddingTop: =32
+                  PaddingBottom: =32
+                  PaddingLeft: =16
+                  PaddingRight: =16
+                  DropShadow: =DropShadow.None
+                Children:
+                  - lblPageHeading:
+                      Control: Label@2.5.1
+                      Properties:
+                        Text: ="What is your postcode?"
+                        Role: =TextRole.Heading1
+                        Font: =BexleyFont
+                        Size: =BexleySizeH1
+                        FontWeight: =FontWeight.Bold
+                        Color: =BexleyTextBlack
+                        AutoHeight: =true
+                  - lblPostcodeHint:
+                      Control: Label@2.5.1
+                      Properties:
+                        Text: ="We'll use this to check we collect from your area. For example, DA6 7AT"
+                        Font: =BexleyFont
+                        Size: =BexleySizeBody
+                        Color: =BexleyTextBlack
+                        AutoHeight: =true
+                  - lblPostcodeError:
+                      Control: Label@2.5.1
+                      Properties:
+                        Text: ="Enter a full UK postcode, like DA6 7AT"
+                        Visible: =locShowErrors && IsBlank(Trim(txtPostcode.Text))
+                        Live: =Live.Polite
+                        Font: =BexleyFont
+                        Size: =BexleySizeBody
+                        FontWeight: =FontWeight.Bold
+                        Color: =BexleyError
+                        AutoHeight: =true
+                  - txtPostcode:
+                      Control: Classic/TextInput@2.3.2
+                      Properties:
+                        AccessibleLabel: ="Postcode"
+                        Font: =BexleyFont
+                        Size: =BexleySizeBody
+                        Color: =BexleyTextBlack
+                        BorderColor: =If(lblPostcodeError.Visible, BexleyError, BexleyTextBlack)
+                        BorderThickness: =If(lblPostcodeError.Visible, 4, 2)
+                        FocusedBorderColor: =BexleyTextBlack
+                        FocusedBorderThickness: =BexleyFocusThickness
+                        Height: =BexleyTargetHeight
+                        Width: =240
+                  - btnContinue:
+                      Control: Classic/Button@2.2.0
+                      Properties:
+                        Text: ="Continue"
+                        OnSelect: |-
+                          =UpdateContext({locShowErrors: true});
+                          If(
+                              IsBlank(Trim(txtPostcode.Text)),
+                              SetFocus(txtPostcode),
+                              Navigate('Check your answers Screen', ScreenTransition.None)
+                          )
+                        Font: =BexleyFont
+                        Size: =BexleySizeBody
+                        FontWeight: =FontWeight.Bold
+                        Fill: =BexleyFuchsia
+                        Color: =BexleyWhite
+                        HoverFill: =ColorFade(BexleyFuchsia, -20%)
+                        HoverColor: =BexleyWhite
+                        PressedFill: =ColorFade(BexleyFuchsia, -30%)
+                        PressedColor: =BexleyWhite
+                        BorderThickness: =0
+                        FocusedBorderColor: =BexleyTextBlack
+                        FocusedBorderThickness: =BexleyFocusThickness
+                        Height: =BexleyTargetHeight
+                        Width: =160
+
+            # Footer: council name and the accessibility statement
+            - conFooter:
+                Control: GroupContainer@1.3.0
+                Variant: AutoLayout
+                Properties:
+                  FillPortions: =0
+                  Height: =64
+                  Fill: =BexleyHighlight
+                  LayoutDirection: =LayoutDirection.Horizontal
+                  LayoutAlignItems: =LayoutAlignItems.Center
+                  LayoutGap: =24
+                  PaddingLeft: =16
+                  PaddingRight: =16
+                  DropShadow: =DropShadow.None
+                Children:
+                  - lblFooterCouncil:
+                      Control: Label@2.5.1
+                      Properties:
+                        Text: ="London Borough of Bexley"
+                        Font: =BexleyFont
+                        Size: =BexleySizeSmall
+                        Color: =BexleyTextBlack
+                  - btnAccessibilityStatement:
+                      Control: Classic/Button@2.2.0
+                      Properties:
+                        Text: ="Accessibility statement"
+                        OnSelect: =Navigate('Accessibility statement Screen', ScreenTransition.None)
+                        Font: =BexleyFont
+                        Size: =BexleySizeSmall
+                        Underline: =true
+                        Fill: =Color.Transparent
+                        Color: =BexleyLink
+                        HoverFill: =Color.Transparent
+                        # Stays BexleyLink on hover: BexleyLinkHover is only 3.3:1 on the
+                        # footer's grey (brand skill, colour-contrast.md). The underline stays.
+                        HoverColor: =BexleyLink
+                        PressedFill: =Color.Transparent
+                        PressedColor: =BexleyLinkVisited
+                        BorderThickness: =0
+                        FocusedBorderColor: =BexleyTextBlack
+                        FocusedBorderThickness: =BexleyFocusThickness
+                        Height: =BexleyTargetHeight

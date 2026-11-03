@@ -1,0 +1,17 @@
+{
+  "name": "lbbexley-digital",
+  "owner": {
+    "name": "London Borough of Bexley Digital Team"
+  },
+  "description": "London Borough of Bexley standards for building Power Platform services with AI coding assistants: brand, accessibility, legal duties and guardrails.",
+  "version": "0.3.0",
+  "plugins": [
+    {
+      "name": "lbbexley",
+      "source": "./plugins/lbbexley",
+      "description": "Bexley brand, WCAG 2.2 AA accessibility, content style, publicity, data protection, equality and AI transparency rules as skills, with read-only reviewers and guardrail hooks for canvas apps, Power Pages, Copilot Studio, Power Automate and Dataverse.",
+      "category": "productivity",
+      "tags": ["power-platform", "accessibility", "local-government", "uk-public-sector"]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Help using the standards
+    url: https://github.com/dbraben/lbbexley-digital-standards/blob/main/SUPPORT.md
+    about: Where to ask the Digital Team a question.
+  - name: Report a security problem
+    url: https://github.com/dbraben/lbbexley-digital-standards/blob/main/SECURITY.md
+    about: Never in a public issue. Personal data found anywhere is a data breach.

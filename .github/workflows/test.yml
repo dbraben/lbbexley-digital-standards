@@ -1,0 +1,61 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Tests
+        run: npm test
+
+      - name: Rules document matches the standards check
+        run: node scripts/build-rules-doc.js --check
+
+      - name: Standards check on this repository
+        run: node plugins/lbbexley/scripts/lbbexley-check.js --root . --github --fail-on warning
+
+      - name: Sync into an empty app repository
+        run: |
+          mkdir -p "$RUNNER_TEMP/app"
+          node scripts/sync-app.js --target "$RUNNER_TEMP/app"
+          node scripts/sync-app.js --target "$RUNNER_TEMP/app" --check
+
+  validate:
+    name: Plugin validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Validate the marketplace and plugin
+        run: |
+          npm install --global @anthropic-ai/claude-code
+          claude plugin validate .
+          claude plugin validate plugins/lbbexley

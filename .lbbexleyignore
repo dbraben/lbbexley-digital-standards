@@ -1,0 +1,3 @@
+# The tests deliberately contain examples that break the rules. Personal-data findings are never ignored:
+# the tests build real-looking identifiers at run time instead.
+tests/**  # the tests deliberately contain examples that break the rules

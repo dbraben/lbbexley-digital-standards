@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "command": "node .lbbexley/standards/scripts/session-start.js",
+        "env": { "LBBEXLEY_HARNESS": "copilot" },
+        "timeoutSec": 10
+      }
+    ],
+    "preToolUse": [
+      {
+        "type": "command",
+        "command": "node .lbbexley/standards/scripts/dataverse-guard.js",
+        "env": { "LBBEXLEY_HARNESS": "copilot" },
+        "timeoutSec": 10
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "command": "node .lbbexley/standards/scripts/check-file.js",
+        "env": { "LBBEXLEY_HARNESS": "copilot" },
+        "timeoutSec": 30
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "command": "node .lbbexley/standards/scripts/stop-gate.js",
+        "env": { "LBBEXLEY_HARNESS": "copilot" },
+        "timeoutSec": 60
+      }
+    ],
+    "subagentStop": [
+      {
+        "type": "command",
+        "command": "node .lbbexley/standards/scripts/end-of-run-record.js",
+        "env": { "LBBEXLEY_HARNESS": "copilot" },
+        "timeoutSec": 30
+      }
+    ]
+  }
+}

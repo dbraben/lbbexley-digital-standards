@@ -1,0 +1,6 @@
+# Changes to the standards need a review from the Digital Team maintainers.
+# Add named maintainers here, and areas with specific sign-off (see GOVERNANCE.md).
+*                                            @dbraben
+/plugins/lbbexley/skills/brand/              @dbraben
+/plugins/lbbexley/skills/publicity/          @dbraben
+/plugins/lbbexley/skills/data-protection/    @dbraben

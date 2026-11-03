@@ -1,0 +1,17 @@
+{
+  "name": "lbbexley-digital-standards",
+  "version": "0.3.0",
+  "private": true,
+  "description": "London Borough of Bexley digital standards for Power Platform builds: Claude Code plugin marketplace, Copilot sync and CI checks.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\"",
+    "check": "node plugins/lbbexley/scripts/lbbexley-check.js --root .",
+    "rules-doc": "node scripts/build-rules-doc.js",
+    "sync": "node scripts/sync-app.js",
+    "verify": "npm test && node scripts/build-rules-doc.js --check && node plugins/lbbexley/scripts/lbbexley-check.js --root ."
+  }
+}

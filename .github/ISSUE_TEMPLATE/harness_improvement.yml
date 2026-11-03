@@ -1,0 +1,54 @@
+name: Harness improvement
+description: An idea for improving the Bexley standards, usually from the end-of-run check in an app repository.
+title: "Harness idea: "
+labels: ["harness-improvement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Most ideas come from `.lbbexley/improvements.md` in an app repository, through `/lbbexley:improve` (Copilot: the lbbexley-improve skill). The Digital Team triages them, and the sign-offs in GOVERNANCE.md still apply.
+
+        Never include personal data, screenshots of real records or links to test or production environments.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Skill
+        - Path rule
+        - Standards check
+        - App template
+        - Documentation
+        - Evals
+    validations:
+      required: true
+  - type: input
+    id: target
+    attributes:
+      label: Which part
+      description: The skill, rule or file, for example canvas-apps, canvas-contrast or tests/accessibility.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The mistake the harness missed, the guidance that was missing, or the rule that got it wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested change
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: The app repository and pull request, the file and line, or the end-of-run review output. Fictional data only.
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Before you submit
+      options:
+        - label: This issue contains no personal data.
+          required: true

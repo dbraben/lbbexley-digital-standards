@@ -1,0 +1,140 @@
+{
+  "prefix": "lbbexley",
+  "organisation": "London Borough of Bexley",
+  "palette": {
+    "BexleyFuchsia": "#912B88",
+    "BexleyAquaDark": "#06828D",
+    "BexleySpring": "#218721",
+    "BexleyGrape": "#6056B3",
+    "BexleyTango": "#DC3800",
+    "BexleyFuchsiaLight": "#FED7FC",
+    "BexleyAquaLight": "#A2F6F6",
+    "BexleySpringLight": "#D2F88C",
+    "BexleyGrapeLight": "#D8DAFD",
+    "BexleyTangoLight": "#FDBE86",
+    "BexleyTextBlack": "#0B0C0C",
+    "BexleyTextGrey": "#6F777B",
+    "BexleyWhite": "#FFFFFF",
+    "BexleyHighlight": "#F3F2F1",
+    "BexleyPanel": "#DEE0E2",
+    "BexleyBorder": "#BFC1C3",
+    "BexleyLink": "#005EA5",
+    "BexleyLinkHover": "#2B8CC4",
+    "BexleyLinkVisited": "#4C2C92",
+    "BexleyFocus": "#FFDD00",
+    "BexleyError": "#D4351C",
+    "BexleyMark": "#FFF199"
+  },
+  "legacyColours": {
+    "Royal": "#2E358B",
+    "Hyacinth": "#286FD4",
+    "Geranium": "#E6005B"
+  },
+  "font": "Lato",
+  "labelledControls": [
+    "textinput",
+    "dropdown",
+    "combobox",
+    "datepicker",
+    "toggle",
+    "radio",
+    "radiogroup",
+    "slider",
+    "rating",
+    "listbox",
+    "numberinput",
+    "peninput",
+    "icon",
+    "image"
+  ],
+  "consumerEmailDomains": [
+    "gmail.com",
+    "googlemail.com",
+    "hotmail.com",
+    "hotmail.co.uk",
+    "outlook.com",
+    "live.com",
+    "live.co.uk",
+    "msn.com",
+    "yahoo.com",
+    "yahoo.co.uk",
+    "ymail.com",
+    "icloud.com",
+    "me.com",
+    "mac.com",
+    "aol.com",
+    "aol.co.uk",
+    "btinternet.com",
+    "btopenworld.com",
+    "sky.com",
+    "talktalk.net",
+    "virginmedia.com",
+    "ntlworld.com",
+    "protonmail.com",
+    "proton.me",
+    "gmx.com",
+    "gmx.co.uk",
+    "mail.com",
+    "zoho.com"
+  ],
+  "tenantHosts": [
+    "sharepoint.com",
+    "dynamics.com",
+    "api.powerplatform.com",
+    "logic.azure.com",
+    "azurewebsites.net",
+    "powerappsportals.com",
+    "powerpagesites.com"
+  ],
+  "trackingHosts": [
+    "googletagmanager.com",
+    "google-analytics.com",
+    "analytics.google.com",
+    "doubleclick.net",
+    "connect.facebook.net",
+    "facebook.com/tr",
+    "hotjar.com",
+    "clarity.ms",
+    "snap.licdn.com",
+    "ads.linkedin.com"
+  ],
+  "ignorePaths": [
+    ".github/skills/",
+    ".github/agents/lbbexley-",
+    ".github/instructions/lbbexley-",
+    ".claude/rules/lbbexley-",
+    ".lbbexley-standards/",
+    ".lbbexley/standards/",
+    ".lbbexley/state/"
+  ],
+  "canvasSizes": {
+    "BexleySizeH1": 36,
+    "BexleySizeH2": 28,
+    "BexleySizeH3": 21,
+    "BexleySizeH4": 18,
+    "BexleySizeH5": 14,
+    "BexleySizeLead": 18,
+    "BexleySizeBody": 14,
+    "BexleySizeSmall": 13
+  },
+  "copilotModels": {
+    "_note": "Copilot custom agents try these models in order and fall back to the model selected in the picker. Check the names in the Copilot model picker and update them here, then run the sync.",
+    "plan": [
+      "Claude Opus 5.5 (copilot)",
+      "claude-opus-5.5",
+      "Claude Opus 4.5 (copilot)"
+    ],
+    "build": [
+      "Claude Sonnet 5.5 (copilot)",
+      "claude-sonnet-5.5",
+      "Claude Sonnet 4.5 (copilot)"
+    ],
+    "check": [
+      "Claude Haiku 5.5 (copilot)",
+      "claude-haiku-5.5",
+      "Claude Haiku 4.5 (copilot)",
+      "GPT-5 mini (copilot)"
+    ]
+  },
+  "standardsRepository": "dbraben/lbbexley-digital-standards"
+}

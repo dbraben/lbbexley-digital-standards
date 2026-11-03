@@ -1,0 +1,116 @@
+# Reusable Bexley standards check. App repositories call it on every pull request:
+#
+#   jobs:
+#     standards:
+#       uses: dbraben/lbbexley-digital-standards/.github/workflows/standards-check.yml@v0.2.2
+#       with:
+#         standards-ref: v0.2.2
+#
+# It checks the files a pull request changes (or the whole repository on other
+# events) and annotates problems on the pull request. Any finding, however
+# minor, fails it. It also warns during pre-election periods, and fails when
+# the synced Bexley files (skills, agents, path rules, hooks, scripts) differ
+# from the release. Set release: true on the pull request that takes a service
+# live, to check the compliance documents are complete as well.
+name: Bexley standards check
+
+on:
+  workflow_call:
+    inputs:
+      standards-ref:
+        description: 'Release of the standards to check against. Use the same tag as in "uses".'
+        type: string
+        default: main
+      fail-on:
+        description: 'Lowest severity that fails the check. The definition of done is zero findings, so keep the default.'
+        type: string
+        default: warning
+      release:
+        description: 'Also check the compliance documents are complete. Use on the pull request that takes the service live.'
+        type: boolean
+        default: false
+      standards-repository:
+        description: 'Where the standards live.'
+        type: string
+        default: dbraben/lbbexley-digital-standards
+    secrets:
+      standards-token:
+        description: 'Only needed if the standards repository is private: a token that can read it.'
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  standards:
+    name: Bexley standards
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the app
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check out the standards
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.standards-repository }}
+          ref: ${{ inputs.standards-ref }}
+          path: .lbbexley-standards
+          token: ${{ secrets.standards-token || github.token }}
+          persist-credentials: false
+
+      - name: Check out the current pre-election periods
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.standards-repository }}
+          ref: main
+          path: .lbbexley-standards/.main
+          sparse-checkout: plugins/lbbexley/config/pre-election-periods.json
+          sparse-checkout-cone-mode: false
+          token: ${{ secrets.standards-token || github.token }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Pre-election periods
+        env:
+          LBBEXLEY_ELECTIONS_FILE: .lbbexley-standards/.main/plugins/lbbexley/config/pre-election-periods.json
+        run: |
+          node <<'EOF'
+          const c = require("./.lbbexley-standards/plugins/lbbexley/scripts/lib/config");
+          const today = c.londonToday();
+          for (const p of c.loadElectionPeriods()) {
+            if (p.start <= today && today <= p.end) {
+              console.log(`::warning title=Pre-election period::${p.name} (${p.start} to ${p.end}). Check anything public against the publicity rules for pre-election periods before merging.`);
+            }
+          }
+          EOF
+
+      - name: Run the standards check
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          FAIL_ON: ${{ inputs.fail-on }}
+          RELEASE: ${{ inputs.release }}
+        run: |
+          CHECK=.lbbexley-standards/plugins/lbbexley/scripts/lbbexley-check.js
+          EXTRA=()
+          if [ "$RELEASE" = "true" ]; then EXTRA+=(--release); fi
+          if [ "$EVENT" = "pull_request" ] && [ -n "$BASE_REF" ] && [ "$RELEASE" != "true" ]; then
+            git diff --name-only --diff-filter=ACMR "origin/$BASE_REF...HEAD" > "$RUNNER_TEMP/changed.txt"
+            echo "Checking the $(wc -l < "$RUNNER_TEMP/changed.txt") file(s) this pull request changes."
+            node "$CHECK" --root . --files-from "$RUNNER_TEMP/changed.txt" --github --fail-on "$FAIL_ON"
+          else
+            node "$CHECK" --root . --github --fail-on "$FAIL_ON" "${EXTRA[@]}"
+          fi
+
+      - name: Bexley files match the standards release
+        run: |
+          node .lbbexley-standards/scripts/sync-app.js --target . --check \
+            || { echo "::error title=Bexley files out of date::The synced Bexley files (skills, agents, rules, hooks and .lbbexley/standards) differ from the standards release this check uses. Run npm run standards:update -- <version>, or put back the files that were edited by hand."; exit 1; }

@@ -1,0 +1,8 @@
+node_modules/
+plugins/lbbexley/evals/results/
+*.log
+.env
+.env.*
+.DS_Store
+Thumbs.db
+.lbbexley/state/
