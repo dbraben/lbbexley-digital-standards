@@ -150,6 +150,39 @@ test('stop gate and end-of-run reviewer: review, problems held open, ideas logge
   assert.equal(ideas.length, 1, 'duplicate ideas are not logged twice');
 });
 
+test('an unreadable reviewer report is never a pass, and keeps earlier findings open', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
+  write(dir, 'src/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', 'BexleyPanel'));
+  saved(dir, 'src/Home.pa.yaml');
+  stop(dir);
+  reviewerDone(dir, 'I could not complete the review: the file was too large to read.');
+  assert.equal(state(dir).lastReview.readable, false);
+  assert.deepEqual(state(dir).reviewed, {}, 'nothing is marked reviewed');
+
+  const again = JSON.parse(stop(dir, { stop_hook_active: true }).stdout);
+  assert.equal(again.decision, 'block', 'the review is asked for again');
+  assert.match(again.reason, /end-of-run-reviewer/);
+  assert.doesNotMatch(JSON.stringify(again), /check passed/);
+
+  reviewerDone(dir, report({ work: [{ file: 'src/Home.pa.yaml', line: 4, problem: 'Panel is too pale', fix: 'Use white' }], harness: [] }));
+  assert.equal(state(dir).lastReview.readable, true);
+  const held = JSON.parse(stop(dir, { stop_hook_active: true }).stdout);
+  assert.equal(held.decision, 'block', 'the earlier finding is still open');
+  assert.match(held.reason, /Panel is too pale/);
+});
+
+test('a file created through a terminal command is reviewed once, not again after a clean review', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
+  write(dir, 'src/Shell.pa.yaml', GOOD_CANVAS);
+  const ask = JSON.parse(stop(dir).stdout);
+  assert.equal(ask.decision, 'block');
+  assert.match(fs.readFileSync(path.join(dir, '.lbbexley', 'state', 'review-request.md'), 'utf8'), /src\/Shell\.pa\.yaml/);
+
+  reviewerDone(dir, report({ work: [], harness: [] }));
+  const after = stop(dir).stdout;
+  assert.ok(!after || JSON.parse(after).decision !== 'block', 'no second review request for the same content');
+});
+
 test('end-of-run record ignores other agents and never logs personal data', () => {
   const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
   reviewerDone(dir, report({ work: [], harness: [{ area: 'skill', suggestion: `Mention ${personalEmail()}`, evidence: 'x' }] }), 'Explore');

@@ -92,11 +92,24 @@ function appendIdeas(root, ideas, sessionId) {
   const isReviewer = /end-of-run-reviewer|lbbexley-check/i.test(input.agentType) || /END-OF-RUN REVIEW/.test(input.lastMessage);
   if (!isReviewer) return;
 
-  const report = parseReport(input.lastMessage) || { work: [], harness: [] };
+  const report = parseReport(input.lastMessage);
   const state = load(root, input.sessionId);
   const rel = f => String(f || '').replace(/\\/g, '/').replace(/^\.\//, '');
 
-  for (const f of state.edited) state.reviewed[f] = hashFile(root, f);
+  // A report that can't be read is an incomplete review, not a clean one: no
+  // file is marked reviewed, earlier findings stay open, and nothing is logged.
+  // The stop gate asks for the review again.
+  if (!report) {
+    state.lastReview = { at: new Date().toISOString(), work: 0, harness: 0, readable: false, announced: false };
+    save(root, input.sessionId, state);
+    return;
+  }
+
+  // Only the exact files and content the reviewer was sent are marked reviewed,
+  // using the hashes recorded when the request was written. A file changed
+  // after the request is reviewed again.
+  for (const [f, hash] of Object.entries((state.pendingReview && state.pendingReview.files) || {})) state.reviewed[f] = hash;
+  state.pendingReview = null;
   state.openItems = (report.work || [])
     .filter(w => w && w.file && fs.existsSync(path.join(root, rel(w.file))))
     .map(w => ({ file: rel(w.file), line: Number(w.line) || null, problem: sentence(clean(w.problem)), fix: sentence(clean(w.fix)), hash: hashFile(root, rel(w.file)) }));
@@ -106,7 +119,7 @@ function appendIdeas(root, ideas, sessionId) {
     at: new Date().toISOString(),
     work: (report.work || []).length,
     harness: ideas,
-    readable: Boolean(parseReport(input.lastMessage)),
+    readable: true,
     announced: false,
   };
   save(root, input.sessionId, state);

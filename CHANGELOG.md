@@ -2,6 +2,15 @@
 
 All notable changes to the Bexley digital standards. Versions follow `major.minor.patch`: a new rule that can fail existing builds is a minor version at least.
 
+## Unreleased
+
+Setup and review fixes from a workshop walkthrough. Nothing here changes what passes a build.
+
+- **Review cannot pass on an unreadable report.** If the end-of-run reviewer's report can't be read, no file is marked reviewed, earlier findings stay open, and the stop gate asks for the review again. It never reports "passed".
+- **No repeat reviews.** The review request records the exact files and content hashes sent. Those files are marked reviewed when the review completes, so a file created through a terminal command isn't requested again after a clean review. A file changed after the request is reviewed again.
+- **Intake reuses what's already known.** `new-app` records what the person has said in `docs/discovery/service-introduction.md` and accepts "not decided yet" and "no environment yet". `requirements` reads `AGENTS.md`, `docs/discovery/` and any existing `docs/requirements.md` first, asks only about gaps, keeps story IDs stable on a re-run, and keeps "draft" separate from "agreed by" the service owner.
+- **Post-design reconciliation.** The architect skill has a step that brings plugins, compliance documents, accessibility targets, agent tests, environment settings and "Built with" into line with the design.
+
 ## 0.3.0 – 3 November 2026
 
 Start from your own project. Nothing in this release can fail a build that passed with 0.2.2.

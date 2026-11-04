@@ -104,7 +104,7 @@ function writeReviewRequest(root, files, sessionId) {
   const needReview = capped ? [] : unseen;
 
   if (!problems.length && !stillOpen.length && !needReview.length) {
-    const summary = state.lastReview && !state.lastReview.announced ? state.lastReview : null;
+    const summary = state.lastReview && !state.lastReview.announced && state.lastReview.readable !== false ? state.lastReview : null;
     state.holds = 0;
     state.lastFingerprint = '';
     if (summary) state.lastReview.announced = true;
@@ -123,7 +123,10 @@ function writeReviewRequest(root, files, sessionId) {
   // Loop guard: the same outstanding list again means the assistant can't or
   // won't fix it. Standards problems get three attempts; reviewer problems it
   // has explained rather than fixed get one. Then it stops and the person is told.
-  const fp = fingerprint({ problems, stillOpen: stillOpen.map(i => i.problem), needReview });
+  // The hashes are part of the fingerprint, so a file changed after a request
+  // is a new request, never accepted as the old one.
+  const needReviewHashes = Object.fromEntries(needReview.map(rel => [rel, hashFile(root, rel)]));
+  const fp = fingerprint({ problems, stillOpen: stillOpen.map(i => i.problem), needReview: needReviewHashes });
   state.holds = fp === state.lastFingerprint ? (state.holds || 0) + 1 : 1;
   state.lastFingerprint = fp;
 
@@ -143,6 +146,8 @@ function writeReviewRequest(root, files, sessionId) {
       allowStop(`Bexley checks: stopped with ${problems.length} standards problem(s) still outstanding. They must be fixed before this work is done:\n${problems.join('\n')}`);
     } else if (stillOpen.length) {
       allowStop(`Bexley checks: the end-of-run review reported ${stillOpen.length} problem(s) that weren't fixed. Read the explanation above and decide whether they need fixing before this work is done:\n${stillOpen.map(item).join('\n')}`);
+    } else if (state.lastReview && state.lastReview.readable === false) {
+      allowStop(`Bexley checks: the end-of-run review didn't finish, because its report couldn't be read. The files changed in this run haven't been reviewed. Run ${reviewCommand} again before you call this work done.`);
     } else {
       allowStop(`Bexley checks: the end-of-run review didn't run. Run ${reviewCommand} before you call this work done.`);
     }
@@ -163,6 +168,7 @@ function writeReviewRequest(root, files, sessionId) {
     ].join('\n');
   } else {
     writeReviewRequest(root, needReview, input.sessionId);
+    state.pendingReview = { fp, files: needReviewHashes };
     state.reviewRequested = fp;
     state.reviewRounds = (state.reviewRounds || 0) + 1;
     const who = copilot
