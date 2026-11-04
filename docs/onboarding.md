@@ -28,7 +28,7 @@ On your laptop:
 | Node.js 22 or later (LTS) | Runs the standards check and the Dataverse MCP server |
 | .NET 10 SDK | Runs Microsoft's canvas app authoring MCP server (canvas apps only) |
 | Power Platform CLI (`pac`) | Connects to your dev environment. Install the Power Platform Tools extension in VS Code, which includes it |
-| Claude Code, or GitHub Copilot | Your assistant. For Claude Code, install the Claude Code extension for VS Code (or the command-line version) and sign in with your Claude account |
+| Claude Code, or GitHub Copilot | Your assistant. For Claude Code, install the command-line version from Anthropic's [set-up guide](https://code.claude.com/docs/en/setup), then run `claude` and sign in with your Claude account. You use it in VS Code's terminal (see step 4) |
 
 The Digital Team gives you a Power Platform dev environment and access to the GitHub repositories.
 
@@ -43,13 +43,13 @@ For each dev environment used in the pilot:
 
 ## 3. Create your app repository
 
-1. On GitHub, open **lbbexley-app-template** and choose **Use this template**, then **Create a new repository**.
+1. Sign in to GitHub, open **lbbexley-app-template** and choose **Use this template** (top right, beside **Star**), then **Create a new repository**.
 2. Name it `lbbexley-` followed by your service, for example `lbbexley-parking-permits`, and make it private.
 3. Clone it and open the folder in VS Code. Choose **Trust** when VS Code asks.
 
 ## 4. Turn on the standards
 
-**Claude Code.** Start Claude Code in the folder. When it asks whether to trust the folder, say yes. It then offers to add the Bexley and Microsoft plugin marketplaces and turn on the Bexley plugin: accept. Check it's on: `/plugin` shows **lbbexley** enabled, and typing `/lbbexley` lists its commands. The plugin's reminder at the start of each session goes to Claude rather than to you, so to see it working, ask Claude which rules apply in this repository.
+**Claude Code.** Open VS Code's terminal in the folder and run `claude`. Use the terminal rather than the Claude Code panel: the panel doesn't take its starting mode from the project, so it doesn't start in plan mode. When Claude Code asks whether to trust the folder, say yes. It then offers to add the Bexley and Microsoft plugin marketplaces and turn on the Bexley plugin: accept. Check it's on: `/plugin` shows **lbbexley** enabled, and typing `/lbbexley` lists its commands. The plugin's reminder at the start of each session goes to Claude rather than to you, so to see it working, ask Claude which rules apply in this repository.
 
 If it doesn't offer, add them yourself:
 
@@ -137,4 +137,7 @@ It updates the synced Bexley files and the version the Quality workflow checks a
 | The pull request check says the Bexley files are out of date | Someone edited a synced file by hand, or the workflow and the files are on different releases. Run `npm run standards:update -- <version>`. |
 | `npm run transcript:clean` couldn't find who said what | Download the transcript from Teams again as a `.vtt` file, and clean that. |
 | `npm run transcript:clean` says the original is inside your repository | Move it out, for example to Downloads, and run it again. The assistant can read anything inside the repository. |
-| Claude Code doesn't start in plan mode in VS Code | Set `claudeCode.initialPermissionMode` to `plan` in your VS Code user settings. |
+| There's no **Use this template** button on the template | Sign in to GitHub. The button is at the top right, beside **Star**. |
+| `claude` isn't found in VS Code's terminal | The VS Code extension doesn't add `claude` to the terminal. Install the command-line version (step 2), then open a new terminal. |
+| `/model` doesn't show `opusplan` | Claude Code calls it **Opus Plan Mode**. It's the last option, and it's only listed while it's the model in use. If it isn't there, type `/model opusplan`. |
+| Claude Code doesn't start in plan mode | You're using the Claude Code panel, which never takes its starting mode from the project. Run `claude` in VS Code's terminal instead, or set `claudeCode.initialPermissionMode` to `plan` in your VS Code user settings. |

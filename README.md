@@ -42,7 +42,7 @@ The [Bexley AI build harness workshop](https://github.com/dbraben/lbbexley-ai-bu
 You need:
 
 - a GitHub account
-- Claude Code with a Claude Pro or Max subscription, or GitHub Copilot with agent mode in VS Code
+- Claude Code's command-line version with a Claude Pro or Max subscription, or GitHub Copilot with agent mode in VS Code
 - VS Code, Git and Node.js 22 or later
 - a Power Platform dev environment from the Digital Team, with Dataverse and the Bexley publisher (prefix `lbbexley`)
 
@@ -50,16 +50,16 @@ Set your AI account's privacy settings first: the [onboarding guide](docs/onboar
 
 **With Claude Code**
 
-1. Open [lbbexley-app-template](https://github.com/dbraben/lbbexley-app-template) and select **Use this template**, then **Create a new repository**. Choose your own account as the owner, name it `lbbexley-` followed by your service, for example `lbbexley-parking-permits`, and make it private.
+1. Sign in to GitHub, open [lbbexley-app-template](https://github.com/dbraben/lbbexley-app-template) and select **Use this template** (top right, beside **Star**), then **Create a new repository**. Choose your own account as the owner, name it `lbbexley-` followed by your service, for example `lbbexley-parking-permits`, and make it private.
 2. Clone **your** repository, open it in VS Code, and trust the folder.
-3. Start Claude Code and accept its offer to add the Bexley plugin. Check it's on with `/plugin`.
+3. Run `claude` in VS Code's terminal and accept its offer to add the Bexley plugin. Check it's on with `/plugin`.
 4. Run `/lbbexley:new-app` and answer the questions about your service.
 5. Capture the requirements. Clean a Teams meeting transcript with `npm run transcript:clean`, or write your own requirement prompt in `docs/discovery/`, then run `/lbbexley:requirements` and `/lbbexley:architect`.
 6. For each change: describe it in plan mode, read and approve the plan, and let the end-of-run check finish. Run `/lbbexley:review` before you open a pull request in your repository.
 
 **With GitHub Copilot**
 
-1. Open [lbbexley-app-template](https://github.com/dbraben/lbbexley-app-template) and select **Use this template**, then **Create a new repository**. Choose your own account as the owner, name it `lbbexley-` followed by your service, for example `lbbexley-parking-permits`, and make it private.
+1. Sign in to GitHub, open [lbbexley-app-template](https://github.com/dbraben/lbbexley-app-template) and select **Use this template** (top right, beside **Star**), then **Create a new repository**. Choose your own account as the owner, name it `lbbexley-` followed by your service, for example `lbbexley-parking-permits`, and make it private.
 2. Clone **your** repository, open it in VS Code, and trust the folder.
 3. Open the chat view in **Agent** mode. The Bexley agents, skills and rules are already in your repository: check the agent picker lists **lbbexley-plan**, **lbbexley-build** and **lbbexley-check**.
 4. Choose **lbbexley-build** and ask it to use the **lbbexley-new-app** skill. Answer the questions about your service.
