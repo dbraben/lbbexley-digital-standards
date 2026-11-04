@@ -58,6 +58,24 @@ Don't label your answer with step names: the person just needs the architecture.
 6. **Risks and open questions.** Assumptions you made, what could go wrong, and the decisions someone else must make.
 7. **Draw it.** A simple Mermaid diagram: audiences, the interfaces they use, Dataverse, flows and outside systems. Show the non-digital route. Keep it readable.
 
+## Reconcile the configuration
+
+The set-up left some technical choices provisional: the Microsoft plugins, the build types, the compliance documents marked "to be confirmed", and the environment. Once the design is saved, bring them into line with it. A change of design can change all of these: moving from an internal canvas app to a public Power Pages service, for example, changes the plugins, the accessibility testing, the publicity and data protection documents, and the test targets.
+
+Go through this list and record what you did:
+
+| Item | Reconcile it with the design |
+|---|---|
+| Build types in `AGENTS.md` and `README.md` | The components in the design, replacing "not decided yet" |
+| Microsoft plugins (`.claude/settings.json`) | Only the plugins for the components the design uses (Claude Code only; Copilot: tell the person which ones) |
+| Compliance documents in `docs/compliance/` | Every document that applies, with its content filled in. Each document that doesn't apply says why. Nothing left as "to be confirmed" |
+| Accessibility test targets (`tests/accessibility/targets.json`) | One entry for each screen or page the design adds |
+| Agent test set (`tests/agent-test-set.md`) | Questions for each agent the design adds |
+| Environment (`.mcp.json`, `.vscode/mcp.json`, the solution) | The dev environment, if there is one, and the solution name. If there's still no environment, record that the environment is still to be set up |
+| "Built with" in `AGENTS.md` | The final list of components |
+
+Then say what changed, and anything still open. If a change to the design would change the duties in the requirements, say so and suggest the person checks the requirements again.
+
 ## Save it
 
 Write the result to `docs/architecture.md` with these sections: The need, Users and how they reach the service (a table of audience, interface and purpose, including the non-digital route), Components (a table of component and role), How it works, Duties by design, Risks and open questions, and Diagram (in a ```mermaid block, which GitHub and VS Code show as a picture).

@@ -11,7 +11,7 @@ The harness is three repositories. A release comes as one download with a folder
 
 | Folder | Published as | Who uses it |
 |---|---|---|
-| `lbbexley-digital-standards` | `dbraben/lbbexley-digital-standards`, tagged with the release, such as `v0.3.0` | Claude Code installs the plugin from it; every service repository's pull request check runs its workflow |
+| `lbbexley-digital-standards` | `dbraben/lbbexley-digital-standards`, tagged with the release, such as `v0.3.2` | Claude Code installs the plugin from it; every service repository's pull request check runs its workflow |
 | `lbbexley-app-template` | `dbraben/lbbexley-app-template`, marked as a template | Developers select **Use this template** to create their own repository |
 | `lbbexley-ai-build-workshop` | `dbraben/lbbexley-ai-build-workshop` | Developers follow the exercises with a project of their own |
 
@@ -31,9 +31,9 @@ Unzip the download: double-click it. If you've downloaded it more than once, you
 ```bash
 # The standards
 cd ~/Downloads/lbbexley-digital-standards
-git init -b main && git add -A && git commit -m "Bexley digital standards 0.3.0"
+git init -b main && git add -A && git commit -m "Bexley digital standards 0.3.2"
 gh repo create dbraben/lbbexley-digital-standards --public --source . --push
-git tag v0.3.0 && git push origin v0.3.0
+git tag v0.3.2 && git push origin v0.3.2
 gh label create harness-improvement --color 0E8A16 --description "Idea from an end-of-run check"
 gh label create false-alarm --color D93F0B --description "The standards check reported a problem that isn't one"
 
@@ -78,6 +78,16 @@ Pages and screens behind a sign-in also need an **A11Y_STORAGE_STATE** secret: r
 
 ## What's new
 
+### In 0.3.2: the review checks only what's been built
+
+- **Review.** `/lbbexley:review` checks only the documents when nothing has been built yet, and says the screen checks don't apply, instead of running them on nothing.
+
+### In 0.3.1: fixes from the first workshop runs
+
+- **No more repeated requests.** The end-of-run check marks every file it asked about as reviewed when the review reports, including files changed by a command or by hand, so it no longer asks for the same review again and again.
+- **Reviews in the background.** Claude Code runs the reviewer in the background now. The check waits for its report instead of asking again, and the review limit counts each request from the person rather than each turn.
+- **Set-up and requirements reuse what you've said.** `/lbbexley:new-app` keeps your answers in `docs/discovery/service-introduction.md` and accepts "not decided yet". `/lbbexley:requirements` starts from them, asks only about gaps, and says where it saved `docs/requirements.md`. After the design, `/lbbexley:architect` brings the plugins, compliance documents and test targets into line with it.
+
 ### In 0.3.0: start from your own project
 
 - **Requirements.** `/lbbexley:requirements` turns a cleaned Teams meeting transcript, or a developer's own requirement prompt, into `docs/requirements.md`: users, user stories with acceptance criteria, rules, data, duties and open questions. The architect and plan skills start from it.
@@ -93,20 +103,22 @@ Pages and screens behind a sign-in also need an **A11Y_STORAGE_STATE** secret: r
 - **Accessibility tests.** Playwright and axe-core against every page and screen, at WCAG 2.2 AA, with reflow and focus tests for Power Pages. The test runner comes from the standards and updates with each release; each service lists its own pages and screens.
 - **Structure** adopted from the web development repository the team liked (path rules, a quality-checks skill, parallel workflows, Dependabot, a dev container, issue forms), and an architect skill based on the open-source power-platform-architect plugin.
 
-The [CHANGELOG](../CHANGELOG.md) has the full list. Release 0.2.0 could fail builds that passed with 0.1.0; 0.3.0 adds no new rules.
+The [CHANGELOG](../CHANGELOG.md) has the full list. Release 0.2.0 could fail builds that passed with 0.1.0; 0.3.0, 0.3.1 and 0.3.2 add no new rules.
 
 ## What's been checked
 
-- **80 automated tests pass**, covering all 41 rules in the standards check (including contrast through transparent backgrounds), the guardrails, the end-of-run gate and its limits, the transcript cleaner (WebVTT, Word and text layouts, names, contact details and numbers, and its safety stops), the sync (including the accessibility test runner and links between skills) and the plugin's structure.
+- **86 automated tests pass**, covering all 41 rules in the standards check (including contrast through transparent backgrounds), the guardrails, the end-of-run gate and its limits (including files changed by a command, reviews running in the background and review reports that can't be read), the transcript cleaner (WebVTT, Word and text layouts, names, contact details and numbers, and its safety stops), the sync (including the accessibility test runner and links between skills) and the plugin's structure.
 - **The transcript cleaner**, run through `npm run transcript:clean` in a copy of the template: the cleaned copy used roles, contact details were removed, nothing was printed or kept in the repository with a name in it, and Git ignored the cleaned file.
 - **The standards check passes on the standards and template repositories** with zero findings. Claude Code's plugin validator passes for the marketplace and the plugin, and actionlint passes for every workflow.
 - **Accessibility tests on sample pages**, run from the synced copy of the test runner. A compliant page passes every check. A page with deliberate failures fails all three tests: axe finds the contrast, page title, language, image alt text and form label problems, and the reflow and focus tests fail too.
 - **A live Claude Code session** on a copy of the template, asked to build a confirmation screen. The check after saving caught a hover colour with 3.32:1 contrast, and the assistant fixed it. The end-of-run gate then had the Haiku reviewer look at the work four times. The assistant fixed what it found each time, including button wording, fixed sizes that would clip text at 400% zoom, and a missing "what happens next" section. The gate then let it finish with zero findings. The reviewer logged five ideas for improving the harness, for example a check for `Navigate()` calls to screens that don't exist. The four reviews cost about $0.02 of the session's $0.57, at list prices.
 - **Copilot hooks**, run from the synced hooks file with input in the format Copilot documents, on a copy of the template. A Dataverse delete was denied, and an edit that hid keyboard focus was flagged. The end-of-run gate held the agent until the edit was fixed, then asked for lbbexley-check once.
 - **`npm run standards:update`** updated a copy of the template from a local release, changing both the synced files and the workflow's pins.
+- **The end-of-run check with the review in the background**, replayed on a copy of the template with the hook input that Claude Code 2.1.318 documents: a session that renamed the service with a command and edited its plan with the edit tool. Release 0.3.0 asked for the same review four times, then said the review hadn't run, then asked again. Release 0.3.1 waited while the review ran, then passed.
 
 ## Not yet checked
 
+- **A live session with 0.3.1's end-of-run check.** The hook calls were replayed, not made by Claude Code itself. In a test repository, ask Claude to change some text with a command, and check that the end-of-run check waits for the review and then passes.
 - **Copilot hooks** are a preview feature. They were tested with the input VS Code is documented to send, not inside VS Code itself. Try them in a test repository before the pilot.
 - **Copilot model names** need checking against your plans (above).
 - **Real Teams transcripts.** The transcript cleaner was tested with made-up transcripts in the WebVTT and Word layouts Teams uses, not with a real download. Try it on a short real meeting first, and use the `.vtt` download if a `.docx` doesn't work.

@@ -9,7 +9,9 @@ disable-model-invocation: true
 
 ## 1. Check this is a fresh template
 
-Read `AGENTS.md`. If it has no `{{...}}` placeholders, the repository is already set up: say so, and ask what the person wants to change instead of starting again. If `docs/requirements.md` or `docs/architecture.md` exists, use them to answer the questions below.
+Read `AGENTS.md`. If it has no `{{...}}` placeholders, the repository is already set up: say so, and ask what the person wants to change instead of starting again. Don't rerun the questions below for a project that's already set up.
+
+Also read `docs/discovery/`, `docs/requirements.md` and `docs/architecture.md` if they exist, and use them to answer the questions below. Use the person's own earlier answers in this session the same way.
 
 ## 2. Ask about the service
 
@@ -26,6 +28,10 @@ Use $ARGUMENTS as the service name if given. Ask for anything else you don't kno
 | `{{PERSONAL_DATA}}` | Will it handle personal data? If so, what kinds? |
 | `{{AI_FEATURES}}` | Will it use AI: an agent, AI Builder, AI prompts in flows, or none? |
 
+Accept "not decided yet" for `{{BUILD_TYPES}}` and "no environment yet" for `{{DEV_ENVIRONMENT_URL}}`. These are normal answers at this stage: the design step decides the technology, and the environment can come later. Don't keep asking for them.
+
+If the person has already described the purpose, users, rules, data or systems, record what they said in `docs/discovery/service-introduction.md`, so the requirements skill can reuse it and doesn't ask again. Run the personal data check in the requirements skill first, and write nothing that fails it. Keep it to what the person said, in their own words, with no names of residents or staff.
+
 Derive `{{SOLUTION_NAME}}` yourself: `lbbexley` followed by the service name in PascalCase without spaces, for example `lbbexleyParkingPermitApplications`. Confirm it with the person.
 
 If the dev environment URL doesn't look like a dev environment (for example it contains "prod" or "live"), stop and check. The harness must never point at production.
@@ -34,8 +40,8 @@ If the dev environment URL doesn't look like a dev environment (for example it c
 
 - Replace every placeholder in `AGENTS.md` and `README.md`, and delete the note at the top of `README.md` that says this is the Bexley app template.
 - Replace `{{SERVICE_NAME}}`, `{{SERVICE_OWNER}}` and `{{AUDIENCE}}` in each file in `docs/compliance/`. Leave the other `{{...}}` parts for the service team: they need real decisions, and `npm run check:release` won't pass until they're done.
-- For documents that don't apply, replace the content under the title with one line saying why: for example `atrs-record.md` when there is no AI, or `publicity-check.md` for a staff-only tool.
-- In `.mcp.json` and `.vscode/mcp.json`, replace `https://your-dev-environment.crm11.dynamics.com` with the dev environment URL if the whole team shares it. If each developer has their own, leave it, and tell the person to set the `DATAVERSE_DEV_URL` environment variable instead.
+- For a compliance document that depends on a decision not yet made (for example `atrs-record.md` when AI isn't decided, or `publicity-check.md` when the audience isn't decided), write "To be confirmed after the design" under the title instead of "not applicable". Only write "not applicable" once the answer is known, with one line saying why: for example `atrs-record.md` when there is no AI, or `publicity-check.md` for a staff-only tool. The post-design configuration step (the architect skill) settles these.
+- In `.mcp.json` and `.vscode/mcp.json`, replace `https://your-dev-environment.crm11.dynamics.com` with the dev environment URL if the whole team shares it. If there's no environment yet, leave the placeholder and say so in the summary. If each developer has their own, leave it, and tell the person to set the `DATAVERSE_DEV_URL` environment variable instead.
 
 ## 4. Turn on the Microsoft plugins this build needs
 
@@ -49,6 +55,8 @@ In `.claude/settings.json`, add to `enabledPlugins` only the plugins that match 
 | Model-driven app | `"model-apps@power-platform-skills": true` |
 
 Copilot Studio agents and flows don't need a Microsoft plugin; the Bexley skills cover them.
+
+If the build types are "not decided yet", turn on no Microsoft plugins now. The post-design configuration step turns on the ones the design needs.
 <!-- /claude-only -->
 <!-- copilot: Skip this step in Copilot. Developers using Claude Code turn the Microsoft plugins on in `.claude/settings.json`; tell the person which ones match the build types: canvas-apps, power-pages or model-apps from the power-platform-skills marketplace. -->
 
@@ -62,6 +70,9 @@ Tell the person, briefly:
 
 1. What you filled in, and which compliance documents still need their input.
 2. <!-- claude-only -->To restart Claude Code so the plugin changes load. For a canvas app, to run `/configure-canvas-mcp` once afterwards.<!-- /claude-only --><!-- copilot: That anyone using Claude Code should restart it so the plugin changes load. -->
-3. To create the solution in the dev environment with the Bexley publisher (prefix `lbbexley`) and the solution name above.
+3. If there's a dev environment: to create the solution in it with the Bexley publisher (prefix `lbbexley`) and the solution name above, and to run `/configure-canvas-mcp` once only if a canvas app is part of the design. If there's no environment yet, that's expected: the design step and the configuration step will say when to create the solution.
+3a. That the service's technology and environment can stay undecided for now, and that they'll be settled after the requirements and the design.
 4. That each page or screen they build goes into `tests/accessibility/targets.json`, and to run `npm run test:a11y:login` once there's something to sign in to.
-5. To commit the set-up and open a pull request, then capture the requirements with `/lbbexley:requirements` (from a cleaned meeting transcript or their own requirement prompt in `docs/discovery/`), and start each feature with `/lbbexley:plan` in plan mode.
+5. To commit the set-up and open a pull request, then capture the requirements with `/lbbexley:requirements`. It reuses what they've already said and asks only what's missing. Add a cleaned meeting transcript or a requirement prompt in `docs/discovery/` if that helps. Start each feature with `/lbbexley:plan` in plan mode once the service owner has agreed the requirements.
+
+If they come back to this repository later, they don't rerun this skill. They read the project state (`AGENTS.md`, `docs/`) and resume at the next incomplete stage.

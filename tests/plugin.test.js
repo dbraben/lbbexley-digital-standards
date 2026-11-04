@@ -99,7 +99,7 @@ test('the end-of-run reviewer asks for the report the record hook reads', () => 
 
 test('hooks point at scripts that exist and cover the whole run', () => {
   const hooks = readJson(path.join(PLUGIN, 'hooks', 'hooks.json')).hooks;
-  assert.deepEqual(Object.keys(hooks).sort(), ['PostToolUse', 'PreToolUse', 'SessionStart', 'Stop', 'SubagentStop', 'UserPromptSubmit']);
+  assert.deepEqual(Object.keys(hooks).sort(), ['PostToolUse', 'PreToolUse', 'SessionStart', 'Stop', 'SubagentStart', 'SubagentStop', 'UserPromptSubmit']);
   for (const groups of Object.values(hooks)) {
     for (const g of groups) {
       for (const h of g.hooks) {
@@ -157,6 +157,7 @@ test('sync: writes the Copilot skills, agents, path rules, hooks and the standar
   assert.match(review, /^---\nname: lbbexley-review\n/);
   assert.doesNotMatch(review, /allowed-tools|claude-only|CLAUDE_PLUGIN_ROOT|lbbexley:/);
   assert.match(review, /npm run check/);
+  assert.match(review, /For documents only, skip the items about screens and pages/, 'Copilot reviews documents without the screen checks');
   assert.match(read('.github/skills/lbbexley-canvas-apps/SKILL.md'), /`\/lbbexley-review`/);
   assert.ok(fs.existsSync(path.join(target, '.github/skills/lbbexley-canvas-apps/screen-pattern.pa.yaml')));
   assert.doesNotMatch(read('.github/skills/lbbexley-architect/SKILL.md'), /^model:/m, 'Copilot skills have no model field');

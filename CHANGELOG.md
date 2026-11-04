@@ -2,6 +2,36 @@
 
 All notable changes to the Bexley digital standards. Versions follow `major.minor.patch`: a new rule that can fail existing builds is a minor version at least.
 
+## 0.3.2 – 4 November 2026
+
+The review checks only what's been built. Nothing in this release can fail a build that passed with 0.3.1.
+
+- **Review.** `/lbbexley:review` sorts the changed files into what people use (anything under `src/`) and documents. When only documents have changed, it says nothing has been built yet, skips the accessibility tests and the accessibility reviewer, and reports them as not applicable rather than as a gap. Before, it ran the screen checks on a branch that held only the set-up and the requirements. A screen or page that has been built but isn't in `tests/accessibility/targets.json` is still reported as a gap.
+- **End-of-run review.** For changes that are documents only, the reviewer checks content, data and the duties, and skips the screen and page checks.
+
+## 0.3.1 – 4 November 2026
+
+Fixes from the first workshop runs. The end-of-run check no longer asks for the same review again and again, and the set-up and the requirements reuse what the person has already said. Nothing in this release can fail a build that passed with 0.3.0.
+
+End-of-run check:
+
+- **Files changed by a command.** The review request records the exact files and content it sends, including files changed by a command, an MCP tool or by hand. When the review reports, those files are marked as reviewed, so the check doesn't ask again; a file changed after the request is reviewed again. Before, only files saved with the assistant's edit tools were marked, so the check asked for a review of the others at the end of every turn, until it gave up with "the end-of-run review didn't run".
+- **Reviews in the background.** Claude Code now runs subagents in the background, so the assistant's turn ends while the review is still running. The check waits for it instead of asking again, using the list of running tasks Claude Code gives the hook, or the time the review started. The review's report starts a turn of its own, and the check runs again at the end of it. A review that never reports is asked for again after 15 minutes.
+- **An unreadable report is never a pass.** If the reviewer's report can't be read, no file is marked reviewed, earlier findings stay open, and the check asks for the review again. It never reports "passed".
+- **Review limit.** The review runs at most five times for each request from the person, not each turn, because a background review's report starts a turn of its own. The prompt guard notes when the person sends a message.
+- **Messages.** The request for a review says to start it once and end the turn. When the check gives up, it names the files that weren't reviewed.
+
+Set-up, requirements and design:
+
+- **Intake reuses what's already known.** `new-app` records what the person has said in `docs/discovery/service-introduction.md`, and accepts "not decided yet" and "no environment yet". `requirements` reads `AGENTS.md`, `docs/discovery/` and any existing `docs/requirements.md` first, asks only about gaps, keeps story IDs stable on a re-run, and keeps "draft" separate from "agreed by" the service owner.
+- **Where the requirements are.** The requirements skill tells the person where `docs/requirements.md` is: in their repository on their computer, on the current branch, and not on GitHub until they push it. In plan mode, it says the plan is the draft, saved when they approve it.
+- **Post-design reconciliation.** The architect skill has a step that brings the plugins, compliance documents, accessibility targets, agent tests, environment settings and "Built with" into line with the design.
+
+Docs:
+
+- **Updating the plugin.** The onboarding guide and `npm run standards:update` give the two commands that update the Claude Code plugin: `claude plugin marketplace update lbbexley-digital`, then `claude plugin update lbbexley@lbbexley-digital`. Updating the marketplace on its own doesn't update the plugin. The onboarding guide also explains the end-of-run check's "Stop hook error" label.
+
+
 ## 0.3.0 – 3 November 2026
 
 Start from your own project. Nothing in this release can fail a build that passed with 0.2.2.

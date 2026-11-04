@@ -88,8 +88,8 @@ Every project starts from what the people who run and use the service said, not 
    ```
 
    In PowerShell, use `"$HOME\Downloads\<transcript file>.vtt"`. It writes a cleaned copy to `docs/discovery/`, which is never committed, and a roles file next to the original. Change "Speaker 1" and so on in the roles file to roles such as "Service manager", and run it again. Then read the cleaned copy from start to finish and remove anything else that could identify a person: the checklist is in the data-protection skill (`transcripts.md`).
-4. **Add your own requirement prompt** for anything the meeting didn't cover: copy `.github/skills/lbbexley-requirements/requirement-prompt.md` to `docs/discovery/requirement-prompt.md` and fill it in (`requirement-prompt-example.md` next to it shows the level of detail). No transcript? The prompt on its own is enough to start.
-5. **Write the requirements** with `/lbbexley:requirements` (Copilot: the lbbexley-requirements skill, with lbbexley-plan). It writes `docs/requirements.md`: users, user stories with acceptance criteria, rules, data, duties and open questions. Ask the service owner to check it.
+4. **Add your own requirement prompt** for anything the meeting didn't cover: copy `.github/skills/lbbexley-requirements/requirement-prompt.md` to `docs/discovery/requirement-prompt.md` and fill it in (`requirement-prompt-example.md` next to it shows the level of detail). Make it in VS Code, on your computer, not on GitHub: a file created on GitHub is published, and the assistant only sees what's on your computer. No transcript? The prompt on its own is enough to start.
+5. **Write the requirements** with `/lbbexley:requirements` (Copilot: the lbbexley-requirements skill, with lbbexley-plan). In Claude Code, switch out of plan mode first (Shift+Tab until it says **accept edits on**), so it saves the file straight away rather than showing you a plan. It writes `docs/requirements.md`: users, user stories with acceptance criteria, rules, data, duties and open questions. The file is in your repository on your computer, on your branch: open it in VS Code. It isn't on GitHub until you push. Ask the service owner to check it.
 6. **Design the service** with `/lbbexley:architect`, then create an issue for each story and plan the first one.
 
 ## 7. How to work
@@ -98,7 +98,7 @@ Every change goes plan, build, check, each step on the model that suits it.
 
 1. **Plan, on the strongest model.** Sessions start in plan mode with `opusplan`, so Claude Code plans on Opus. Describe the user need, not the screens. For a new service, start from the requirements (step 6); for each change, the plan skill writes the plan to `docs/plans/`, with the words users will read and acceptance criteria. In Copilot, use the **lbbexley-plan** agent. Read the plan and approve it, or ask for changes.
 2. **Build, on the everyday model.** Approving the plan switches Claude Code to Sonnet; in Copilot, choose **Build this plan** to hand over to lbbexley-build. Build in small steps, one screen, flow or topic at a time, and read what the assistant writes. The standards check runs every time it saves a file and sends every finding straight back to it.
-3. **Check, on a smaller model.** When the assistant tries to finish, the end-of-run check runs the standards check on everything it changed, then asks the end-of-run reviewer (Haiku) to review the changes for what tools can't see. The assistant fixes what it finds before it can finish. In Copilot, choose **Check my work** to hand over to lbbexley-check. The assistant stops and lists what's outstanding for you if it can't fix a standards problem in three attempts, if it thinks a reviewer's problem is wrong and explains why instead of fixing it, or after five reviews in one request. Decide what to do about each one, and tell the Digital Team if you think a check is wrong.
+3. **Check, on a smaller model.** When the assistant tries to finish, the end-of-run check runs the standards check on everything it changed, then asks the end-of-run reviewer (Haiku) to review the changes for what tools can't see. Claude Code shows that request as a "Stop hook error": it's the check working, not a fault. The reviewer runs in the background, so the assistant's turn can end while it works, with "the review on the smaller model is still running". When the review reports, the assistant carries on by itself. The assistant fixes what it finds before it can finish. In Copilot, choose **Check my work** to hand over to lbbexley-check. The assistant stops and lists what's outstanding for you if it can't fix a standards problem in three attempts, if it thinks a reviewer's problem is wrong and explains why instead of fixing it, or after five reviews in one request. Decide what to do about each one, and tell the Digital Team if you think a check is wrong.
 4. **Test in your dev environment** with fictional data: `npm run verify` runs the standards check on everything and the accessibility tests. Then test by hand, keyboard only, with a screen reader and at 400% zoom.
 5. **Review.** Run `/lbbexley:review` (Copilot: `/lbbexley-review`) and fix everything it lists, however minor. Do the "Needs a person" tests.
 6. **Pull request.** Commit to a branch and open a pull request with the template. The Quality workflow runs the standards check and, once your environment's address is set up, the accessibility tests. A colleague reviews it.
@@ -112,10 +112,15 @@ The end-of-run reviewer also notes where the harness let you down: a problem the
 When the Digital Team releases a new version of the standards, update your repository in a pull request of its own:
 
 ```bash
-npm run standards:update -- v0.3.0
+npm run standards:update -- v0.3.2
 ```
 
-It updates the synced Bexley files and the version the Quality workflow checks against. Claude Code users also update the plugin: `/plugin marketplace update lbbexley-digital`.
+It updates the synced Bexley files and the version the Quality workflow checks against. Claude Code users also update the plugin. In a terminal, run these two commands, then start Claude Code again:
+
+```bash
+claude plugin marketplace update lbbexley-digital
+claude plugin update lbbexley@lbbexley-digital
+```
 
 ## Help
 
@@ -140,4 +145,5 @@ It updates the synced Bexley files and the version the Quality workflow checks a
 | There's no **Use this template** button on the template | Sign in to GitHub. The button is at the top right, beside **Star**. |
 | `claude` isn't found in VS Code's terminal | The VS Code extension doesn't add `claude` to the terminal. Install the command-line version (step 2), then open a new terminal. |
 | `/model` doesn't show `opusplan` | Claude Code calls it **Opus Plan Mode**. It's the last option, and it's only listed while it's the model in use. If it isn't there, type `/model opusplan`. |
+| The end-of-run check asks for the same review again and again, then says "the end-of-run review didn't run" | Your Claude Code plugin is older than 0.3.1. Update it (see "Keeping the standards up to date"), then start Claude Code again. |
 | Claude Code doesn't start in plan mode | You're using the Claude Code panel, which never takes its starting mode from the project. Run `claude` in VS Code's terminal instead, or set `claudeCode.initialPermissionMode` to `plan` in your VS Code user settings. |

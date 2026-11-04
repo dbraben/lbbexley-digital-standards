@@ -1,5 +1,5 @@
 {
-  "description": "Bexley guardrails: session context and pre-election warnings, a personal-data guard on prompts, a Dataverse guard, the standards check on every saved file, and the end-of-run gate with its review on a smaller model.",
+  "description": "Bexley guardrails: session context and pre-election warnings, a personal-data guard on prompts, a Dataverse guard, the standards check on every saved file, and the end-of-run gate with its review on a smaller model, which it waits for when the review runs in the background.",
   "hooks": {
     "SessionStart": [
       {
@@ -59,6 +59,19 @@
             "command": "node",
             "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/stop-gate.js"],
             "timeout": 60
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "end-of-run-reviewer",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/end-of-run-record.js"],
+            "timeout": 10
           }
         ]
       }

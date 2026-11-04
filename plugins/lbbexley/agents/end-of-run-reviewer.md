@@ -13,6 +13,8 @@ Start by reading `.lbbexley/state/review-request.md`. It lists the files changed
 
 The automatic standards check has already passed, so it's found nothing mechanical. Look for what needs judgement. Report every problem, however minor.
 
+If the changes are documents only (nothing under `src/`), check them for content, data and the duties, and skip the accessibility, brand and test items below that are about screens and pages. Nothing has been built yet, so they don't apply.
+
 - **Accessibility.** Labels, alt text and headings that don't make sense on their own. Reading or tab order that doesn't follow the screen. Errors shown only by colour, or not next to their field. Meaning carried by colour alone. Anything that would be hard with a keyboard, a screen reader, 400% zoom or a phone.
 - **Content.** Plain English and a reading age of about 9 for public text. Buttons that start with a verb. Error messages that follow the patterns: specific, no "please", "invalid", "oops" or blame. Sentence case. British spelling. No filler or marketing words.
 - **Brand.** White text only on the five contrast colours, black text only on the accent colours, text black for body text, Lato only, tokens rather than colour values.

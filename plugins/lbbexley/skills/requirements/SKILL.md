@@ -9,11 +9,18 @@ model: opus
 
 Every project starts from what the people who run and use the service actually said, not from assumptions. This skill turns their words into requirements the service owner can check, the architect skill can design from and the plan skill can plan from.
 
-## 1. Find the material
+## 1. Find what's already known
 
-- If the person named a file or pasted text, use that.
-- Otherwise read what's in `docs/discovery/`: cleaned transcripts (`transcript-*.md`), notes, and `requirement-prompt.md`. Skip `README.md`.
-- If there's nothing, ask the person to describe the project in their own words. Offer to create `docs/discovery/requirement-prompt.md` from [requirement-prompt.md](requirement-prompt.md) for them to fill in, and wait until they have. [requirement-prompt-example.md](requirement-prompt-example.md) shows the level of detail that helps; never treat the example as their project.
+Read everything the project already holds before asking anything:
+
+- `AGENTS.md`: the service details from the set-up.
+- `docs/discovery/`: cleaned transcripts (`transcript-*.md`), notes, `service-introduction.md` and `requirement-prompt.md`. Skip `README.md`.
+- `docs/requirements.md`, if it exists. This is a re-run.
+- Anything the person named or pasted in this conversation.
+
+Then summarise what you already know, in a few short points, and say what's missing or contradicts. Ask only about those gaps and contradictions. Never ask again for something the person has already said.
+
+If there's no material at all, ask the person to describe the project in their own words. Offer to create `docs/discovery/requirement-prompt.md` from [requirement-prompt.md](requirement-prompt.md) for them to fill in, and wait until they have. [requirement-prompt-example.md](requirement-prompt-example.md) shows the level of detail that helps; never treat the example as their project.
 
 Never read files outside the repository to look for more, and never read an original transcript, a recording or a `.roles.json` file.
 
@@ -27,7 +34,7 @@ If you find any, stop. Say which file and roughly where (for example "the third 
 
 - Separate what people **need** from the solutions they suggest. "We need a spreadsheet" is a solution; "we need to see every open request in one place" is the need.
 - Note who said what by role, where people disagreed, and anything that sounded like a rule ("we have to reply within 10 working days").
-- Ask the person what's missing, in one go, and only what changes the requirements:
+- Ask the person about what's missing, in one go, and only what changes the requirements. Skip any question the material already answers:
   - Who uses it, on what device, and does anyone need a non-digital route?
   - How many: requests, users, records, and when are the peaks?
   - Which rules apply: legislation, council policy, eligibility, service levels? Where are they written down?
@@ -40,12 +47,13 @@ If you find any, stop. Say which file and roughly where (for example "the third 
 
 ## 4. Write the requirements
 
-Save `docs/requirements.md` with these sections:
+Save `docs/requirements.md` with these sections. If the session is in plan mode, the plan is the draft: say that it's saved as `docs/requirements.md` when the person approves the plan.
 
 ```markdown
 # Requirements: [service name]
 
-Status: draft for the service owner to check. Last updated [date].
+Status: draft, not yet agreed. Last updated [date].
+Agreed by: [role of the service owner, or "not yet agreed"]. Agreed on: [date, or "not yet agreed"].
 
 ## Summary
 What the service lets people do, and why it matters, in three or four sentences.
@@ -75,7 +83,7 @@ Accessibility always; data protection, equality, publicity, AI transparency and 
 ## Out of scope
 
 ## Open questions
-| # | Question | Who can answer |
+| # | Question | Who can answer | Blocks the first story? |
 
 ## Glossary
 Service terms and what they mean.
@@ -91,11 +99,16 @@ Rules for writing them:
 - Write anything users will read in plain English (content-style skill).
 - Summarise what people said. Quote only short phrases, attributed by role, never by name.
 - Mark assumptions as assumptions, and put them in open questions too.
+- Keep story IDs stable. A re-run amends the document: it keeps every existing `R` number, keeps decisions already made, and adds new stories at the end. A story that's dropped is marked "withdrawn", not deleted, so its number isn't reused.
+- Record the status honestly. "Draft" means the content is written; only the service owner's agreement makes it agreed. Never write "agreed" on the person's behalf.
+- Say which open questions block the first Must story. Only those need an answer before planning starts.
 - The duties section feeds the architect skill: say which apply and why, and leave the design to the architect.
 
 ## 5. Check and share
 
-Tell the person to ask the service owner to check the requirements, especially the priorities and the open questions, before anything is built. Then commit `docs/requirements.md`: it holds no personal data. The material in `docs/discovery/` is never committed.
+Tell the person where the file is: `docs/requirements.md` in their repository, on their computer, on the current branch. It isn't on GitHub until they push the branch, and then it's on that branch, not on main. Ask them to open it in their editor and read it there.
+
+Tell the person to ask the service owner to check the requirements, especially the priorities and the open questions, before anything is built. When the owner agrees, the person updates the status line with the owner's role and the date, and commits. Commit `docs/requirements.md`: it holds no personal data. The material in `docs/discovery/` is never committed: Git ignores it, but approved AI tools may still read and process its contents, so it's cleaned before it goes there.
 
 ## 6. Issues for the backlog
 
@@ -107,6 +120,6 @@ When the person asks, draft one GitHub issue for each Must and Should story, usi
 
 Suggest them in this order:
 
-1. The service owner checks the requirements.
-2. `/lbbexley:architect` designs the service from them.
-3. Create the issues, then `/lbbexley:plan` plans the first story, starting with a Must.
+1. The service owner checks the requirements and records their agreement in the status line.
+2. `/lbbexley:architect` designs the service from them, then reconciles the configuration.
+3. Create the issues, then `/lbbexley:plan` plans the first story, starting with a Must, once the questions that block it are answered.

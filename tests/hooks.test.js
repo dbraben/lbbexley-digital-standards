@@ -27,7 +27,11 @@ const write = (dir, rel, text) => {
 };
 const saved = (dir, rel, env = {}) => run(hook('check-file.js'), [], { input: { cwd: dir, session_id: 's1', tool_name: 'Write', tool_input: { file_path: path.join(dir, rel) } }, env });
 const stop = (dir, extra = {}, env = {}) => run(hook('stop-gate.js'), [], { input: { cwd: dir, session_id: 's1', hook_event_name: 'Stop', ...extra }, env });
-const reviewerDone = (dir, message, agent = 'lbbexley:end-of-run-reviewer') => run(hook('end-of-run-record.js'), [], { input: { cwd: dir, session_id: 's1', agent_type: agent, last_assistant_message: message } });
+const reviewerDone = (dir, message, agent = 'lbbexley:end-of-run-reviewer') => run(hook('end-of-run-record.js'), [], { input: { cwd: dir, session_id: 's1', hook_event_name: 'SubagentStop', agent_type: agent, last_assistant_message: message } });
+const reviewerStarted = (dir, agent = 'lbbexley:end-of-run-reviewer') => run(hook('end-of-run-record.js'), [], { input: { cwd: dir, session_id: 's1', hook_event_name: 'SubagentStart', agent_type: agent } });
+const promptSent = (dir, source) => run(hook('prompt-guard.js'), [], { input: { cwd: dir, session_id: 's1', hook_event_name: 'UserPromptSubmit', prompt: 'Carry on', ...(source ? { source } : {}) } });
+const sessionStarted = dir => run(hook('session-start.js'), [], { input: { cwd: dir, session_id: 's1' } });
+const runningReviewer = [{ id: 'a1', type: 'subagent', status: 'running', description: 'End-of-run check', agent_type: 'lbbexley:end-of-run-reviewer' }];
 const report = obj => `END-OF-RUN REVIEW: done\n\n\`\`\`json\n${JSON.stringify(obj)}\n\`\`\``;
 
 // ---------- prompt guard ----------
@@ -150,6 +154,39 @@ test('stop gate and end-of-run reviewer: review, problems held open, ideas logge
   assert.equal(ideas.length, 1, 'duplicate ideas are not logged twice');
 });
 
+test('an unreadable reviewer report is never a pass, and keeps earlier findings open', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
+  write(dir, 'src/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', 'BexleyPanel'));
+  saved(dir, 'src/Home.pa.yaml');
+  stop(dir);
+  reviewerDone(dir, 'I could not complete the review: the file was too large to read.');
+  assert.equal(state(dir).lastReview.readable, false);
+  assert.deepEqual(state(dir).reviewed, {}, 'nothing is marked reviewed');
+
+  const again = JSON.parse(stop(dir, { stop_hook_active: true }).stdout);
+  assert.equal(again.decision, 'block', 'the review is asked for again');
+  assert.match(again.reason, /end-of-run-reviewer/);
+  assert.doesNotMatch(JSON.stringify(again), /check passed/);
+
+  reviewerDone(dir, report({ work: [{ file: 'src/Home.pa.yaml', line: 4, problem: 'Panel is too pale', fix: 'Use white' }], harness: [] }));
+  assert.equal(state(dir).lastReview.readable, true);
+  const held = JSON.parse(stop(dir, { stop_hook_active: true }).stdout);
+  assert.equal(held.decision, 'block', 'the earlier finding is still open');
+  assert.match(held.reason, /Panel is too pale/);
+});
+
+test('a file created through a terminal command is reviewed once, not again after a clean review', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
+  write(dir, 'src/Shell.pa.yaml', GOOD_CANVAS);
+  const ask = JSON.parse(stop(dir).stdout);
+  assert.equal(ask.decision, 'block');
+  assert.match(fs.readFileSync(path.join(dir, '.lbbexley', 'state', 'review-request.md'), 'utf8'), /src\/Shell\.pa\.yaml/);
+
+  reviewerDone(dir, report({ work: [], harness: [] }));
+  const after = stop(dir).stdout;
+  assert.ok(!after || JSON.parse(after).decision !== 'block', 'no second review request for the same content');
+});
+
 test('end-of-run record ignores other agents and never logs personal data', () => {
   const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
   reviewerDone(dir, report({ work: [], harness: [{ area: 'skill', suggestion: `Mention ${personalEmail()}`, evidence: 'x' }] }), 'Explore');
@@ -180,7 +217,7 @@ test('stop gate: a reviewer problem explained rather than fixed is passed to the
   assert.match(passed.systemMessage, /weren't fixed[\s\S]*Panel is too pale/);
 });
 
-test('stop gate: a limited number of reviews in one turn, then the rest waits for the next turn', () => {
+test('stop gate: without a record of the person\'s messages, a limited number of reviews in one turn, then the rest waits for the next turn', () => {
   const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
   const three = { LBBEXLEY_REVIEW_ROUNDS: '3' };
   const colours = ['BexleyPanel', 'BexleyHighlight', 'BexleyWhite', 'BexleyPanel'];
@@ -194,8 +231,93 @@ test('stop gate: a limited number of reviews in one turn, then the rest waits fo
   saved(dir, 'src/Home.pa.yaml');
   const capped = JSON.parse(stop(dir, { stop_hook_active: true }, three).stdout);
   assert.equal(capped.decision, undefined);
-  assert.match(capped.systemMessage, /3 times in this turn[\s\S]*src\/Home\.pa\.yaml/);
+  assert.match(capped.systemMessage, /3 times for this request[\s\S]*src\/Home\.pa\.yaml/);
   assert.match(JSON.parse(stop(dir, { stop_hook_active: false }, three).stdout).reason, /end-of-run-reviewer/, 'a new turn reviews what was left');
+});
+
+test('stop gate: files changed by a command are reviewed once, not asked about again and again', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS, 'docs/notes.md': '# Notes\n\nThe first version.\n' });
+  sessionStarted(dir);
+  write(dir, 'src/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', 'BexleyPanel'));
+  saved(dir, 'src/Home.pa.yaml');
+  write(dir, 'docs/notes.md', '# Notes\n\nThe second version, changed by a command rather than an edit tool.\n');
+
+  const ask = JSON.parse(stop(dir).stdout);
+  assert.match(ask.reason, /2 file\(s\) changed:\n- docs\/notes\.md\n- src\/Home\.pa\.yaml/);
+  reviewerDone(dir, report({ work: [], harness: [] }));
+
+  const done = JSON.parse(stop(dir, { stop_hook_active: true }).stdout || '{}');
+  assert.equal(done.decision, undefined, 'the review covered both files');
+  assert.match(done.systemMessage, /end-of-run check passed/);
+});
+
+test('stop gate: waits for a review that is running in the background instead of asking again', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
+  write(dir, 'src/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', 'BexleyPanel'));
+  saved(dir, 'src/Home.pa.yaml');
+  const ask = JSON.parse(stop(dir).stdout);
+  assert.match(ask.reason, /end-of-run-reviewer/);
+  assert.match(ask.reason, /in the background, end your turn/);
+
+  for (let i = 0; i < 5; i++) {
+    const waiting = JSON.parse(stop(dir, { stop_hook_active: true, background_tasks: runningReviewer }).stdout);
+    assert.equal(waiting.decision, undefined, `wait ${i + 1}: Claude isn't sent back to start another review`);
+    assert.match(waiting.systemMessage, /still running/);
+  }
+  const other = [{ id: 'a2', type: 'subagent', status: 'running', description: 'Explore', agent_type: 'Explore' }];
+  assert.equal(JSON.parse(stop(dir, { stop_hook_active: true, background_tasks: other }).stdout).decision, 'block', 'another agent is not the review');
+
+  reviewerDone(dir, report({ work: [{ file: 'src/Home.pa.yaml', line: 4, problem: 'Panel is too pale', fix: 'Use white' }], harness: [] }));
+  const fix = JSON.parse(stop(dir, { background_tasks: [] }).stdout);
+  assert.match(fix.reason, /Panel is too pale/, 'its report is acted on in the next turn');
+  write(dir, 'src/Home.pa.yaml', GOOD_CANVAS);
+  saved(dir, 'src/Home.pa.yaml');
+  assert.match(JSON.parse(stop(dir, { stop_hook_active: true, background_tasks: [] }).stdout).reason, /end-of-run-reviewer/);
+  reviewerDone(dir, report({ work: [], harness: [] }));
+  assert.match(JSON.parse(stop(dir, { background_tasks: [] }).stdout).systemMessage, /end-of-run check passed/);
+});
+
+test('stop gate: without a list of background tasks, a review that started and has not finished is waited for', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
+  write(dir, 'src/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', 'BexleyPanel'));
+  saved(dir, 'src/Home.pa.yaml');
+  stop(dir);
+  reviewerStarted(dir, 'Explore');
+  assert.equal(JSON.parse(stop(dir, { stop_hook_active: true }).stdout).decision, 'block', 'another agent is not the review');
+  reviewerStarted(dir);
+  assert.match(JSON.parse(stop(dir, { stop_hook_active: true }).stdout).systemMessage, /still running/);
+
+  const file = path.join(dir, '.lbbexley', 'state', 's1.json');
+  const s = state(dir);
+  s.reviewStartedAt = Date.now() - 31 * 60 * 1000;
+  fs.writeFileSync(file, JSON.stringify(s));
+  assert.equal(JSON.parse(stop(dir, { stop_hook_active: true }).stdout).decision, 'block', 'a review that never reported is asked for again');
+
+  reviewerStarted(dir);
+  reviewerDone(dir, report({ work: [], harness: [] }));
+  assert.match(JSON.parse(stop(dir, { stop_hook_active: true }).stdout).systemMessage, /end-of-run check passed/);
+});
+
+test('stop gate: reviews are counted per request from the person, not per turn', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
+  const two = { LBBEXLEY_REVIEW_ROUNDS: '2' };
+  promptSent(dir, 'user');
+  const colours = ['BexleyPanel', 'BexleyHighlight', 'BexleyWhite'];
+  for (let round = 0; round < 2; round++) {
+    write(dir, 'src/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', colours[round]));
+    saved(dir, 'src/Home.pa.yaml');
+    // A background review's report starts a turn of its own (stop_hook_active is false).
+    assert.match(JSON.parse(stop(dir, {}, two).stdout).reason, /end-of-run-reviewer/, `round ${round + 1}`);
+    reviewerDone(dir, report({ work: [], harness: [] }));
+    promptSent(dir, 'system');
+  }
+  write(dir, 'src/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', colours[2]));
+  saved(dir, 'src/Home.pa.yaml');
+  const capped = JSON.parse(stop(dir, {}, two).stdout);
+  assert.equal(capped.decision, undefined);
+  assert.match(capped.systemMessage, /2 times for this request/);
+  promptSent(dir, 'user');
+  assert.match(JSON.parse(stop(dir, {}, two).stdout).reason, /end-of-run-reviewer/, 'the next request from the person reviews what was left');
 });
 
 test('stop gate in Copilot: asks for the check once per set of changes', () => {

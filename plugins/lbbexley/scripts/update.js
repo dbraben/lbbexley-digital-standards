@@ -2,12 +2,14 @@
 'use strict';
 // Updates an app repository to a release of the Bexley standards:
 //
-//   npm run standards:update -- v0.3.0
+//   npm run standards:update -- v0.3.2
 //
 // Downloads that release of the standards into a temporary folder, runs its
 // sync (Copilot skills and agents, path rules, Copilot hooks and these
 // scripts), and moves the pull request check to the same release.
-// Claude Code users also update the plugin: /plugin marketplace update lbbexley-digital
+// Claude Code users also update the plugin, in a terminal:
+//   claude plugin marketplace update lbbexley-digital
+//   claude plugin update lbbexley@lbbexley-digital
 // Review everything it changes in a pull request.
 //
 // Maintainers can try a release before pushing it by pointing
@@ -22,7 +24,7 @@ const { loadStandards } = require('./lib/config');
 function main() {
   const version = process.argv[2];
   if (!version || !/^(v\d+\.\d+\.\d+|main)$/.test(version)) {
-    process.stderr.write('Usage: npm run standards:update -- v0.3.0\n');
+    process.stderr.write('Usage: npm run standards:update -- v0.3.2\n');
     return 2;
   }
   const root = process.cwd();
@@ -48,7 +50,7 @@ function main() {
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
-  process.stdout.write(`Updated to the Bexley standards ${version}. Run npm run check:all, review the changes and open a pull request.\nClaude Code users: /plugin marketplace update lbbexley-digital\n`);
+  process.stdout.write(`Updated to the Bexley standards ${version}. Run npm run check:all, review the changes and open a pull request.\nClaude Code users: update the plugin too. In a terminal, run claude plugin marketplace update lbbexley-digital, then claude plugin update lbbexley@lbbexley-digital, and start Claude Code again.\n`);
   return 0;
 }
 

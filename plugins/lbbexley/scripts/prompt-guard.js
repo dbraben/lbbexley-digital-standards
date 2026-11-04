@@ -3,16 +3,29 @@
 // Prompt guard (Claude Code): stops a prompt that looks like it contains real
 // personal data (NI, NHS or card numbers, personal email addresses) before it
 // is sent. Adding [fictional] to the prompt lets made-up data through.
+// Also notes when the person sends a message, so the stop gate counts its
+// reviews per request rather than per turn. Messages Claude Code adds itself,
+// such as a background review's report, don't count.
 // Quiet outside Bexley app repositories.
 
 const { readStdin, normalise, emit } = require('./lib/hook-io');
 const { loadStandards, isBexleyProject } = require('./lib/config');
 const { findPersonalData } = require('./lib/personal-data');
+const { load, save } = require('./lib/state');
 
 (async () => {
   if (process.env.LBBEXLEY_NESTED === '1') return;
-  const input = normalise(await readStdin());
+  const raw = await readStdin();
+  const input = normalise(raw);
   if (!isBexleyProject(input.cwd)) return;
+
+  const source = String(raw.source ?? 'user');
+  if (source === 'user' || source === 'sdk') {
+    const state = load(input.cwd, input.sessionId);
+    state.lastPersonPromptAt = Date.now();
+    save(input.cwd, input.sessionId, state);
+  }
+
   if (/\[fictional\]/i.test(input.prompt)) return;
 
   const found = findPersonalData(input.prompt, loadStandards());

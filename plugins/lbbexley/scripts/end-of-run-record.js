@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 'use strict';
-// Runs when a subagent finishes. When it's the end-of-run reviewer, this:
-//   - marks the files it reviewed, so the stop gate knows the review happened
+// Runs when a subagent starts and when it finishes. When it's the end-of-run
+// reviewer starting, this notes the time, so the stop gate can wait for a
+// review running in the background. When the reviewer finishes, this:
+//   - marks the files the stop gate asked it to review, at the content it was
+//     sent, so the gate knows the review happened. That includes files changed
+//     by a command. A report that can't be read marks nothing
 //   - records the problems it found, which the stop gate holds open until the
 //     files change
 //   - appends its ideas for improving the harness to .lbbexley/improvements.md,
@@ -86,17 +90,44 @@ function appendIdeas(root, ideas, sessionId) {
 
 (async () => {
   if (process.env.LBBEXLEY_NESTED === '1') return;
-  const input = normalise(await readStdin());
+  const raw = await readStdin();
+  const input = normalise(raw);
   const root = input.cwd;
   if (!isBexleyProject(root)) return;
+  const event = String(raw.hook_event_name ?? raw.hookEventName ?? '');
+
+  if (event === 'SubagentStart') {
+    if (!/end-of-run-reviewer|lbbexley-check/i.test(input.agentType)) return;
+    const state = load(root, input.sessionId);
+    state.reviewStartedAt = Date.now();
+    save(root, input.sessionId, state);
+    return;
+  }
+
   const isReviewer = /end-of-run-reviewer|lbbexley-check/i.test(input.agentType) || /END-OF-RUN REVIEW/.test(input.lastMessage);
   if (!isReviewer) return;
 
-  const report = parseReport(input.lastMessage) || { work: [], harness: [] };
+  const report = parseReport(input.lastMessage);
   const state = load(root, input.sessionId);
   const rel = f => String(f || '').replace(/\\/g, '/').replace(/^\.\//, '');
 
-  for (const f of state.edited) state.reviewed[f] = hashFile(root, f);
+  state.reviewFinishedAt = Date.now();
+
+  // A report that can't be read is an incomplete review, not a clean one: no
+  // file is marked reviewed, earlier findings stay open, and nothing is logged.
+  // The stop gate asks for the review again.
+  if (!report) {
+    state.lastReview = { at: new Date().toISOString(), work: 0, harness: 0, readable: false, announced: false };
+    save(root, input.sessionId, state);
+    return;
+  }
+
+  // Only the exact files and content the reviewer was sent are marked reviewed,
+  // using the hashes recorded when the request was written. That includes files
+  // changed by a command rather than an edit tool. A file changed after the
+  // request is reviewed again.
+  for (const [f, hash] of Object.entries((state.pendingReview && state.pendingReview.files) || {})) state.reviewed[f] = hash;
+  state.pendingReview = null;
   state.openItems = (report.work || [])
     .filter(w => w && w.file && fs.existsSync(path.join(root, rel(w.file))))
     .map(w => ({ file: rel(w.file), line: Number(w.line) || null, problem: sentence(clean(w.problem)), fix: sentence(clean(w.fix)), hash: hashFile(root, rel(w.file)) }));
@@ -106,7 +137,7 @@ function appendIdeas(root, ideas, sessionId) {
     at: new Date().toISOString(),
     work: (report.work || []).length,
     harness: ideas,
-    readable: Boolean(parseReport(input.lastMessage)),
+    readable: true,
     announced: false,
   };
   save(root, input.sessionId, state);

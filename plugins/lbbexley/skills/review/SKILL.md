@@ -1,6 +1,6 @@
 ---
 name: review
-description: The Bexley definition of done before a pull request - runs the standards check and the accessibility tests, has the accessibility and compliance reviewers check what tools can't, checks the compliance documents, and reports what passes, what to fix and what needs a person to test. Use before opening a pull request, before calling a feature finished, or when asked to review work against Bexley standards.
+description: The Bexley definition of done before a pull request - runs the standards check, and the accessibility tests when something people use has changed; has the compliance reviewer, and the accessibility reviewer for anything people use, check what tools can't; checks the compliance documents; and reports what passes, what to fix and what needs a person to test. Use before opening a pull request, before calling a feature finished, or when asked to review work against Bexley standards.
 argument-hint: "[files or folders to review]"
 allowed-tools: Bash(node *lbbexley-check.js*), Bash(npm run check*), Bash(npm run test:a11y*)
 ---
@@ -13,6 +13,13 @@ The end-of-run check already runs after every piece of work. This is the fuller 
 
 Use the paths given ($ARGUMENTS) if there are any. Otherwise review what has changed on this branch: `git diff --name-only main...HEAD` plus uncommitted changes from `git status --short`. If it isn't a git repository, review `src/` and `docs/`.
 
+Then sort the files, because they need different checks:
+
+- **What people use**: anything under `src/`, such as canvas app screens, Power Pages templates and CSS, agent topics, and flows and the emails they send.
+- **Documents**: everything else, such as `docs/requirements.md`, `docs/architecture.md`, `docs/plans/`, `docs/compliance/`, `AGENTS.md` and `README.md`.
+
+If none of the files is something people use, nothing has been built for this change yet. Say so at the start, and review the documents only: skip the accessibility tests and the accessibility review, and report them as not applicable, not as a gap.
+
 ## 2. Run the automated checks
 
 <!-- claude-only -->
@@ -22,21 +29,21 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/lbbexley-check.js" --root . --changed main
 <!-- /claude-only -->
 <!-- copilot: Run `npm run check -- main` (the same standards check, vendored in `.lbbexley/standards/`). -->
 
-Then run `npm run test:a11y` if the change affects anything people see. If the tests can't run (no saved sign-in, or no targets yet), say so in the report: that's a gap to close, not a pass.
+When the change includes something people use, run `npm run test:a11y`. If the tests can't run, or a screen or page that changed isn't in `tests/accessibility/targets.json`, say so in the report: that's a gap to close, not a pass. Don't run them for documents only.
 
 Fix every finding before going further.
 
 ## 3. Review what tools can't check
 
 <!-- claude-only -->
-Hand the files to both reviewer agents at the same time, and give each the list of paths:
+Hand the files to the reviewer agents, and give each the list of paths:
 
-- `lbbexley:accessibility-reviewer`: WCAG 2.2 AA and the Bexley accessibility rules
-- `lbbexley:compliance-reviewer`: content style, brand, data protection, publicity, equality and AI transparency
+- `lbbexley:compliance-reviewer`, always: content style, brand, data protection, publicity, equality and AI transparency
+- `lbbexley:accessibility-reviewer`, only when the change includes something people use: WCAG 2.2 AA and the Bexley accessibility rules
 
-While they work, check the compliance documents (step 4).
+When both apply, run them at the same time. While they work, check the compliance documents (step 4).
 <!-- /claude-only -->
-<!-- copilot: Go through the [review] items in checklist.md yourself, file by file, and note the file and line for each problem. -->
+<!-- copilot: Go through the [review] items in checklist.md yourself, file by file, and note the file and line for each problem. For documents only, skip the items about screens and pages. -->
 
 The full list of what to check is in [checklist.md](checklist.md). The rules the standards check applies are listed in [rules.md](rules.md).
 
@@ -57,7 +64,7 @@ Before go-live, `npm run check:release` must pass: no `{{...}}` placeholders lef
 
 ## 5. Report
 
-Lead with the result, then a table:
+Lead with the result. If only documents changed, say first that nothing has been built yet, so the review covered the documents. Then a table of the areas that apply:
 
 | Area | Result | Details |
 |---|---|---|
@@ -71,6 +78,8 @@ Lead with the result, then a table:
 | Equality | | |
 | AI transparency | | (or "Not applicable") |
 | Compliance documents | | missing or incomplete ones |
+
+Leave out the areas that don't apply, and name them in one line under the table, for example: "Not applicable: accessibility tests and accessibility review (nothing built yet), AI transparency (no AI)."
 
 Then list:
 
