@@ -66,6 +66,8 @@ Run `npm install`, then `npm run test:a11y:install` to install the browser the a
 
 ## 6. Finish
 
+Don't commit yet: the end-of-run check reviews the uncommitted changes first. <!-- claude-only -->When it passes, it asks you to commit: commit the set-up then, on the branch the person is on, with the message "Set up <service name>".<!-- /claude-only --><!-- copilot: Finish by offering **Check my work**. When lbbexley-check finds nothing outstanding, it offers **Commit the work**, which commits the set-up. --> Don't make a branch, push or open a pull request unless the person asks.
+
 Tell the person, briefly:
 
 1. What you filled in, and which compliance documents still need their input.
@@ -73,6 +75,6 @@ Tell the person, briefly:
 3. If there's a dev environment: to create the solution in it with the Bexley publisher (prefix `lbbexley`) and the solution name above, and to run `/configure-canvas-mcp` once only if a canvas app is part of the design. If there's no environment yet, that's expected: the design step and the configuration step will say when to create the solution.
 3a. That the service's technology and environment can stay undecided for now, and that they'll be settled after the requirements and the design.
 4. That each page or screen they build goes into `tests/accessibility/targets.json`, and to run `npm run test:a11y:login` once there's something to sign in to.
-5. To commit the set-up and open a pull request, then capture the requirements with `/lbbexley:requirements`. It reuses what they've already said and asks only what's missing. Add a cleaned meeting transcript or a requirement prompt in `docs/discovery/` if that helps. Start each feature with `/lbbexley:plan` in plan mode once the service owner has agreed the requirements.
+5. That the set-up is committed for them once the check passes, and that the next step is `/lbbexley:requirements`. It asks about the service in the chat, starting from what they've already said, or gives them the questions as a table to answer later. Start each feature with `/lbbexley:plan` in plan mode once the service owner has agreed the requirements.
 
 If they come back to this repository later, they don't rerun this skill. They read the project state (`AGENTS.md`, `docs/`) and resume at the next incomplete stage.

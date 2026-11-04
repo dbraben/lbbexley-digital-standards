@@ -2,6 +2,35 @@
 
 All notable changes to the Bexley digital standards. Versions follow `major.minor.patch`: a new rule that can fail existing builds is a minor version at least.
 
+## 0.4.0 – 4 November 2026
+
+The requirements are a conversation in the chat, and the assistant commits the work, so nobody has to write files in the repository or run Git. Nothing in this release can fail a build that passed with 0.3.2.
+
+Requirements:
+
+- **Asked in the chat.** `/lbbexley:requirements` starts from what it already knows, then offers two ways to carry on: answer two or three questions at a time in the chat, or take the questions away as a table to fill in with the service team. The table's first line, "Bexley requirements answers · <service name> · questions of <date>", tells the skill what it is when it's pasted back, in any session, and it carries on from there. The draft requirements, with the questions still open, are written before the table is given, so nothing is lost in between. The table is also saved in `docs/discovery/requirements-questions.md`, which Git ignores, for anyone who finds it easier to copy from a file.
+- **No files to write.** The requirement prompt template (`requirement-prompt.md`) and its example are gone. The questions are in the skill's `questions.md`, and the person answers them in the chat. Cleaned Teams transcripts in `docs/discovery/` still work, and are optional.
+- **Checked in the chat.** The skill shows a summary of the users, stories and open questions in the chat, makes the changes asked for, and offers the summary as text to send to the service owner. Answers given in the chat get the same personal data check as files.
+- **Issues only when asked.** The requirements skill drafts GitHub issues only if the person asks, and the plan skill names a story's issue only if it has one.
+
+Committing the work:
+
+- **The assistant commits.** In Claude Code, once everything a run changed passes the standards check and the review, the end-of-run check asks Claude to commit it on the current branch with a short message, once for each request from the person. It lists the files, and never includes original transcripts, roles files, secrets, saved sign-ins, `docs/discovery/` or the harness's own state. It says not to make a branch, push or open a pull request unless the person asked. The commit comes after the review, because the review reads the uncommitted changes.
+- **In Copilot**, lbbexley-check offers **Commit the work** when it finds nothing outstanding, and lbbexley-plan offers **Check my work** for the requirements and the design. lbbexley-check now reads what changed from Git, the uncommitted changes, rather than from the last review request, which could be out of date. **Fix what the check found** sends its prompt straight away, and lbbexley-build runs the standards check again before it commits.
+- **Skills don't commit early.** The new-app, requirements, architect and improve skills leave the commit until the check is clean. The template's `AGENTS.md` says the same ("Save"), and its settings let Claude run `git add` and `git commit` without asking. `git push` still asks.
+- **Problems the assistant explained are the person's call.** When the assistant explains a reviewer's problem instead of fixing it, the check tells the person once, and then lets it go: it isn't held against the work again unless a later review reports it again, and the work can be committed. Before, the check held the assistant back once more at the end of every request in the session.
+- **Template.** `.gitignore` ignores `*.vtt` and `*.roles.json`, so an original transcript put in the repository by mistake is never committed. The README and CONTRIBUTING describe saving and sharing without branches; branches and pull requests are there for teams who want them.
+
+Review:
+
+- **Screens with nothing to open yet.** The end-of-run reviewer no longer reports a screen built as source only, with no app in an environment yet, as missing from `tests/accessibility/targets.json`.
+- **Discovery material.** Files in `docs/discovery/` still get the standards check, including for personal data, but not the end-of-run review: they're never committed.
+- **Work on `main`.** `/lbbexley:review` reviews the whole service when the work is on `main`, as it is when the assistant commits for you. On any other branch it still reviews what changed on the branch.
+
+Transcript cleaner: its message says that Git ignores `docs/discovery/`, but that approved AI tools may still read it.
+
+Docs: the README, the onboarding guide and the setup guide describe the conversation, committing and sharing. GOVERNANCE.md adds the risk of work without peer review, and an open decision on peer review before go-live.
+
 ## 0.3.2 – 4 November 2026
 
 The review checks only what's been built. Nothing in this release can fail a build that passed with 0.3.1.

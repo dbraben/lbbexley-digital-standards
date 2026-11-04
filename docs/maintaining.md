@@ -111,15 +111,15 @@ The pull request check always reads this file from `main`, so it warns about a n
 
 1. Update `version` in `.claude-plugin/marketplace.json`, `plugins/lbbexley/.claude-plugin/plugin.json` and `package.json` (the tests check they match).
 2. Add an entry to `CHANGELOG.md` (the tests check there is one). Say clearly if the release can fail builds that passed before.
-3. Merge, then tag: `git tag v0.3.2` and `git push origin v0.3.2`.
+3. Merge, then tag: `git tag v0.4.0` and `git push origin v0.4.0`.
 4. Update the app template in a pull request:
 
    ```bash
-   npm run standards:update -- v0.3.2
+   npm run standards:update -- v0.4.0
    ```
 
-   This syncs the Bexley files from the tag and updates both pins in `.github/workflows/quality.yml`. To try a release on a copy of the template before you push the tag, point it at your local clone: `LBBEXLEY_STANDARDS_SOURCE=../lbbexley-digital-standards npm run standards:update -- v0.3.2` (in PowerShell, set `$env:LBBEXLEY_STANDARDS_SOURCE` first).
+   This syncs the Bexley files from the tag and updates both pins in `.github/workflows/quality.yml`. To try a release on a copy of the template before you push the tag, point it at your local clone: `LBBEXLEY_STANDARDS_SOURCE=../lbbexley-digital-standards npm run standards:update -- v0.4.0` (in PowerShell, set `$env:LBBEXLEY_STANDARDS_SOURCE` first).
 
-5. Tell teams. Each app repository runs the same command in a pull request of its own. Until it does, its pull request check keeps using the release it's pinned to.
+5. Tell teams. Each app repository runs the same command, as a change of its own: the assistant can run it for them. Until it does, its check on GitHub keeps using the release it's pinned to.
 
 Developers using Claude Code get the new plugin version when they run `claude plugin marketplace update lbbexley-digital` and then `claude plugin update lbbexley@lbbexley-digital`, or automatically if they've turned on auto-update for the marketplace in `/plugin`. Auto-update is off by default for marketplaces that aren't Anthropic's.

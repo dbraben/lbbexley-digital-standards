@@ -9,6 +9,10 @@
 //  3. Files changed since the last review need a review by the smaller model:
 //     the lbbexley:end-of-run-reviewer agent (Haiku) in Claude Code, or the
 //     lbbexley-check agent in Copilot.
+//  4. When everything passes, the assistant commits what the run changed, so
+//     the person never has to. It's asked once for each request from the
+//     person, and only after the review, which reads the uncommitted changes.
+//     In Copilot, lbbexley-check offers the commit as a handover instead.
 //
 // Claude Code runs the reviewer in the background, so the assistant's turn can
 // end while the review is still going. The gate waits for it rather than
@@ -18,7 +22,9 @@
 // Plan mode is left alone. Two limits stop it going round in circles, and in
 // both cases the person is told what's outstanding:
 //   - standards problems that are still there after three attempts
-//   - reviewer problems the assistant has explained rather than fixed
+//   - reviewer problems the assistant has explained rather than fixed. These
+//     are then the person's to decide, so they aren't raised again unless a
+//     later review reports them again, and the work can still be committed.
 // The review runs at most five times for each request from the person
 // (LBBEXLEY_REVIEW_ROUNDS): anything changed after that is reviewed at the end
 // of their next request.
@@ -39,6 +45,10 @@ const MAX_REVIEW_ROUNDS = Math.max(1, Number(process.env.LBBEXLEY_REVIEW_ROUNDS)
 const REVIEW_TIMEOUT_MS = 15 * 60 * 1000;
 const REVIEWER = /end-of-run-reviewer/i;
 const FINISHED = /^(completed|done|failed|error|killed|cancelled|canceled|stopped)$/i;
+// Never offered for committing, even where a repository's .gitignore misses them:
+// harness state, cleaned discovery material, secrets, saved sign-ins, and
+// original transcripts with the roles files that hold the names.
+const NEVER_COMMIT = /^(\.lbbexley\/state|docs\/discovery|\.auth)\/|(^|\/)\.env(\.[^/]*)?$|\.(pfx|vtt)$|\.roles\.json$/i;
 
 function fingerprint(parts) {
   return crypto.createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0, 16);
@@ -104,7 +114,8 @@ function writeReviewRequest(root, files, sessionId) {
 
   // This run's files: edited through the assistant's edit tools, or changed on
   // disk since the session started (for example by a command).
-  const fromGit = (changedFiles(root) || []).filter(rel => {
+  const uncommitted = changedFiles(root) || [];
+  const fromGit = uncommitted.filter(rel => {
     try {
       return fs.statSync(path.join(root, rel)).mtimeMs >= startedAt - 2000;
     } catch {
@@ -126,17 +137,35 @@ function writeReviewRequest(root, files, sessionId) {
   const stillOpen = (state.openItems || []).filter(item => item.file && hashFile(root, item.file) === item.hash);
 
   // 3. Files the reviewer hasn't seen in their current form. The harness's own
-  // files (.lbbexley/, such as the improvement ideas the review itself logs)
-  // get the standards check above but not a review.
+  // files (.lbbexley/, such as the improvement ideas the review itself logs) and
+  // the person's discovery material (docs/discovery/, never committed) get the
+  // standards check above but not a review.
   const reviewOn = (process.env.LBBEXLEY_END_OF_RUN || process.env.EVAL_LBBEXLEY_END_OF_RUN) !== '0';
-  const unseen = reviewOn ? unreviewed(root, state, runFiles.filter(rel => !rel.startsWith('.lbbexley/'))) : [];
+  const unseen = reviewOn ? unreviewed(root, state, runFiles.filter(rel => !rel.startsWith('.lbbexley/') && !rel.startsWith('docs/discovery/'))) : [];
   const capped = unseen.length > 0 && (state.reviewRounds || 0) >= MAX_REVIEW_ROUNDS;
   const needReview = capped ? [] : unseen;
 
   if (!problems.length && !stillOpen.length && !needReview.length) {
-    const summary = state.lastReview && !state.lastReview.announced && state.lastReview.readable !== false ? state.lastReview : null;
     state.holds = 0;
     state.lastFingerprint = '';
+
+    // 4. Save the work: what this run changed and hasn't been committed.
+    const edited = new Set(state.edited);
+    const toCommit = [...new Set(uncommitted.filter(rel => edited.has(rel) || fromGit.includes(rel)))]
+      .filter(rel => !NEVER_COMMIT.test(rel.replace(/\\/g, '/')))
+      .sort();
+    const askedFor = personAt === undefined ? `session ${startedAt}` : personAt;
+    if (reviewOn && !copilot && !capped && toCommit.length && state.commitAskedFor !== askedFor) {
+      state.commitAskedFor = askedFor;
+      save(root, input.sessionId, state);
+      blockStop([
+        `Bexley end-of-run check passed. Now save the work, as AGENTS.md says: commit the ${toCommit.length} file(s) this run changed, on the current branch, with a short message saying what changed, and tell the person it's committed. Don't make a branch, push or open a pull request unless they asked:`,
+        ...toCommit.map(f => `- ${f}`),
+      ].join('\n'));
+      return;
+    }
+
+    const summary = state.lastReview && !state.lastReview.announced && state.lastReview.readable !== false ? state.lastReview : null;
     if (summary) state.lastReview.announced = true;
     save(root, input.sessionId, state);
     const logged = state.ideasLogged || 0;
@@ -179,12 +208,18 @@ function writeReviewRequest(root, files, sessionId) {
   const limit = problems.length || !stillOpen.length ? MAX_SAME_HOLDS : 1;
   if (state.holds > limit) {
     state.holds = 0;
+    if (!problems.length && stillOpen.length) {
+      // The person decides about these now. Don't hold the work back for them
+      // again: a later review that still finds them reports them again.
+      state.openItems = (state.openItems || []).filter(item => !stillOpen.includes(item));
+      if (state.lastReview) state.lastReview.announced = true;
+    }
     save(root, input.sessionId, state);
     const item = i => `- ${i.file}${i.line ? ` line ${i.line}` : ''}: ${i.problem}`;
     if (problems.length) {
       allowStop(`Bexley checks: stopped with ${problems.length} standards problem(s) still outstanding. They must be fixed before this work is done:\n${problems.join('\n')}`);
     } else if (stillOpen.length) {
-      allowStop(`Bexley checks: the end-of-run review reported ${stillOpen.length} problem(s) that weren't fixed. Read the explanation above and decide whether they need fixing before this work is done:\n${stillOpen.map(item).join('\n')}`);
+      allowStop(`Bexley checks: the end-of-run review reported ${stillOpen.length} problem(s) that weren't fixed. Read the explanation above and decide whether they need fixing before this work is done:\n${stillOpen.map(item).join('\n')}\nIf they don't, say so, and the assistant commits the work. If they do, ask for the fix.`);
     } else if (state.lastReview && state.lastReview.readable === false) {
       allowStop(`Bexley checks: the end-of-run review didn't finish, because its report couldn't be read. The files changed in this run haven't been reviewed. Run ${reviewCommand} again before you call this work done.`);
     } else {

@@ -33,6 +33,14 @@ const promptSent = (dir, source) => run(hook('prompt-guard.js'), [], { input: { 
 const sessionStarted = dir => run(hook('session-start.js'), [], { input: { cwd: dir, session_id: 's1' } });
 const runningReviewer = [{ id: 'a1', type: 'subagent', status: 'running', description: 'End-of-run check', agent_type: 'lbbexley:end-of-run-reviewer' }];
 const report = obj => `END-OF-RUN REVIEW: done\n\n\`\`\`json\n${JSON.stringify(obj)}\n\`\`\``;
+// Does what the assistant does when the stop gate asks it to save the work:
+// commits the files the request lists.
+const commitListed = (dir, reason) => {
+  const files = reason.split('\n').filter(line => line.startsWith('- ')).map(line => line.slice(2));
+  spawnSync('git', ['add', '--', ...files], { cwd: dir });
+  spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit', '-qm', 'Save the work'], { cwd: dir });
+  return files;
+};
 
 // ---------- prompt guard ----------
 
@@ -147,7 +155,12 @@ test('stop gate and end-of-run reviewer: review, problems held open, ideas logge
   assert.match(JSON.parse(stop(dir).stdout).reason, /end-of-run-reviewer/, 'the fix is reviewed again');
   reviewerDone(dir, report({ work: [], harness: [{ area: 'check', target: 'canvas-apps', suggestion: 'Flag screens with no controls at all', evidence: 'again' }] }));
 
-  const done = JSON.parse(stop(dir).stdout || '{}');
+  const saveIt = JSON.parse(stop(dir).stdout);
+  assert.equal(saveIt.decision, 'block', 'once everything passes, the work is committed');
+  assert.match(saveIt.reason, /check passed\. Now save the work, as AGENTS\.md says: commit the 2 file\(s\)[^\n]*\n- \.lbbexley\/improvements\.md\n- src\/Home\.pa\.yaml$/);
+  commitListed(dir, saveIt.reason);
+
+  const done = JSON.parse(stop(dir, { stop_hook_active: true }).stdout || '{}');
   assert.match(done.systemMessage, /end-of-run check passed/);
   assert.equal(stop(dir).stdout, '', 'nothing more to say');
   const ideas = fs.readFileSync(path.join(dir, '.lbbexley', 'improvements.md'), 'utf8').match(/- \[ \]/g);
@@ -183,8 +196,9 @@ test('a file created through a terminal command is reviewed once, not again afte
   assert.match(fs.readFileSync(path.join(dir, '.lbbexley', 'state', 'review-request.md'), 'utf8'), /src\/Shell\.pa\.yaml/);
 
   reviewerDone(dir, report({ work: [], harness: [] }));
-  const after = stop(dir).stdout;
-  assert.ok(!after || JSON.parse(after).decision !== 'block', 'no second review request for the same content');
+  const after = JSON.parse(stop(dir).stdout);
+  assert.doesNotMatch(after.reason, /end-of-run-reviewer/, 'no second review request for the same content');
+  assert.match(after.reason, /Now save the work, as AGENTS\.md says: commit the 1 file\(s\)[^\n]*\n- src\/Shell\.pa\.yaml$/, 'it is committed instead');
 });
 
 test('end-of-run record ignores other agents and never logs personal data', () => {
@@ -214,7 +228,24 @@ test('stop gate: a reviewer problem explained rather than fixed is passed to the
   assert.equal(JSON.parse(stop(dir, { stop_hook_active: true }).stdout).decision, 'block');
   const passed = JSON.parse(stop(dir, { stop_hook_active: true }).stdout);
   assert.equal(passed.decision, undefined);
-  assert.match(passed.systemMessage, /weren't fixed[\s\S]*Panel is too pale/);
+  assert.match(passed.systemMessage, /weren't fixed[\s\S]*Panel is too pale[\s\S]*If they don't, say so, and the assistant commits the work/);
+
+  // It's the person's call now: the problem isn't held against the work again,
+  // and the work can be committed.
+  promptSent(dir, 'user');
+  const next = JSON.parse(stop(dir).stdout);
+  assert.doesNotMatch(next.reason, /Panel is too pale/);
+  assert.match(next.reason, /Now save the work[\s\S]*- src\/Home\.pa\.yaml$/);
+});
+
+test('stop gate: discovery material gets the standards check but no review', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
+  write(dir, 'docs/discovery/service-introduction.md', '# Service introduction\n\nStaff book meeting rooms.\n');
+  saved(dir, 'docs/discovery/service-introduction.md');
+  assert.equal(stop(dir).stdout, '', 'no review, and nothing to commit');
+  write(dir, 'docs/discovery/service-introduction.md', `# Service introduction\n\nRing ${personalEmail()} to book.\n`);
+  saved(dir, 'docs/discovery/service-introduction.md');
+  assert.match(JSON.parse(stop(dir).stdout).reason, /standards check found 1 problem/, 'personal data is still caught');
 });
 
 test('stop gate: without a record of the person\'s messages, a limited number of reviews in one turn, then the rest waits for the next turn', () => {
@@ -246,8 +277,11 @@ test('stop gate: files changed by a command are reviewed once, not asked about a
   assert.match(ask.reason, /2 file\(s\) changed:\n- docs\/notes\.md\n- src\/Home\.pa\.yaml/);
   reviewerDone(dir, report({ work: [], harness: [] }));
 
+  const saveIt = JSON.parse(stop(dir, { stop_hook_active: true }).stdout);
+  assert.match(saveIt.reason, /commit the 2 file\(s\)[^\n]*\n- docs\/notes\.md\n- src\/Home\.pa\.yaml$/, 'the review covered both files, and both are committed');
+  commitListed(dir, saveIt.reason);
   const done = JSON.parse(stop(dir, { stop_hook_active: true }).stdout || '{}');
-  assert.equal(done.decision, undefined, 'the review covered both files');
+  assert.equal(done.decision, undefined);
   assert.match(done.systemMessage, /end-of-run check passed/);
 });
 
@@ -274,6 +308,7 @@ test('stop gate: waits for a review that is running in the background instead of
   saved(dir, 'src/Home.pa.yaml');
   assert.match(JSON.parse(stop(dir, { stop_hook_active: true, background_tasks: [] }).stdout).reason, /end-of-run-reviewer/);
   reviewerDone(dir, report({ work: [], harness: [] }));
+  // The fix put the file back as it was committed, so there's nothing to save.
   assert.match(JSON.parse(stop(dir, { background_tasks: [] }).stdout).systemMessage, /end-of-run check passed/);
 });
 
@@ -295,6 +330,43 @@ test('stop gate: without a list of background tasks, a review that started and h
 
   reviewerStarted(dir);
   reviewerDone(dir, report({ work: [], harness: [] }));
+  const saveIt = JSON.parse(stop(dir, { stop_hook_active: true }).stdout);
+  assert.match(saveIt.reason, /check passed\. Now save the work/);
+  commitListed(dir, saveIt.reason);
+  assert.match(JSON.parse(stop(dir, { stop_hook_active: true }).stdout).systemMessage, /end-of-run check passed/);
+});
+
+test('stop gate: once everything passes, asks once for each request for the work to be committed', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
+  promptSent(dir, 'user');
+  write(dir, 'src/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', 'BexleyPanel'));
+  saved(dir, 'src/Home.pa.yaml');
+  write(dir, 'Team meeting.vtt', 'WEBVTT\n');
+  assert.match(JSON.parse(stop(dir).stdout).reason, /end-of-run-reviewer/, 'the review comes first');
+  reviewerDone(dir, report({ work: [], harness: [] }));
+
+  const saveIt = JSON.parse(stop(dir).stdout);
+  assert.equal(saveIt.decision, 'block');
+  assert.match(saveIt.reason, /^Bexley end-of-run check passed\. Now save the work, as AGENTS\.md says: commit the 1 file\(s\) this run changed, on the current branch, with a short message/);
+  assert.match(saveIt.reason, /Don't make a branch, push or open a pull request unless they asked:\n- src\/Home\.pa\.yaml$/);
+  assert.doesNotMatch(saveIt.reason, /\.vtt|\.lbbexley\/state/, 'transcripts and harness state are never offered');
+
+  // The person had said not to commit: the assistant says so, and isn't asked again for this request.
+  const declined = JSON.parse(stop(dir, { stop_hook_active: true }).stdout || '{}');
+  assert.equal(declined.decision, undefined);
+  assert.match(declined.systemMessage, /end-of-run check passed/);
+  assert.equal(stop(dir, { stop_hook_active: true }).stdout, '');
+
+  // Their next request is saved too.
+  promptSent(dir, 'user');
+  write(dir, 'src/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', 'BexleyHighlight'));
+  saved(dir, 'src/Home.pa.yaml');
+  assert.equal(stop(dir, { permission_mode: 'plan' }).stdout, '', 'never in plan mode');
+  stop(dir);
+  reviewerDone(dir, report({ work: [], harness: [] }));
+  const again = JSON.parse(stop(dir).stdout);
+  assert.match(again.reason, /Now save the work[\s\S]*- src\/Home\.pa\.yaml$/);
+  commitListed(dir, again.reason);
   assert.match(JSON.parse(stop(dir, { stop_hook_active: true }).stdout).systemMessage, /end-of-run check passed/);
 });
 
@@ -327,6 +399,7 @@ test('stop gate in Copilot: asks for the check once per set of changes', () => {
   const first = JSON.parse(run(hook('stop-gate.js'), [], { input: { cwd: dir, sessionId: 's1' }, env: COPILOT }).stdout);
   assert.match(first.reason, /lbbexley-check agent/);
   assert.equal(run(hook('stop-gate.js'), [], { input: { cwd: dir, sessionId: 's1' }, env: COPILOT }).stdout, '');
+  assert.equal(run(hook('stop-gate.js'), [], { input: { cwd: dir, sessionId: 's1' }, env: COPILOT }).stdout, '', 'lbbexley-check offers the commit, not the gate');
 });
 
 test('LBBEXLEY_END_OF_RUN=0 keeps the standards gate but skips the review', () => {

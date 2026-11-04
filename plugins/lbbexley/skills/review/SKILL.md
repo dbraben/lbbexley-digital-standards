@@ -1,17 +1,22 @@
 ---
 name: review
-description: The Bexley definition of done before a pull request - runs the standards check, and the accessibility tests when something people use has changed; has the compliance reviewer, and the accessibility reviewer for anything people use, check what tools can't; checks the compliance documents; and reports what passes, what to fix and what needs a person to test. Use before opening a pull request, before calling a feature finished, or when asked to review work against Bexley standards.
+description: The Bexley definition of done for a story - runs the standards check, and the accessibility tests when something people use has changed; has the compliance reviewer, and the accessibility reviewer for anything people use, check what tools can't; checks the compliance documents; and reports what passes, what to fix and what needs a person to test. Use before calling a story or feature finished, before sharing the work or opening a pull request, or when asked to review work against Bexley standards.
 argument-hint: "[files or folders to review]"
 allowed-tools: Bash(node *lbbexley-check.js*), Bash(npm run check*), Bash(npm run test:a11y*)
 ---
 
 # Review against Bexley standards
 
-The end-of-run check already runs after every piece of work. This is the fuller review before a pull request. The definition of done is **zero findings of any severity**: warnings are fixed too, or suppressed with a written reason.
+The end-of-run check already runs after every piece of work. This is the fuller review before a story is done, or before the work is shared. The definition of done is **zero findings of any severity**: warnings are fixed too, or suppressed with a written reason.
 
 ## 1. Decide what to review
 
-Use the paths given ($ARGUMENTS) if there are any. Otherwise review what has changed on this branch: `git diff --name-only main...HEAD` plus uncommitted changes from `git status --short`. If it isn't a git repository, review `src/` and `docs/`.
+Use the paths given ($ARGUMENTS) if there are any. Otherwise:
+
+- **On a branch other than `main`:** review what has changed on it: `git diff --name-only main...HEAD` plus uncommitted changes.
+- **On `main`**, where people who don't use branches do all their work, or if that finds nothing, or if it isn't a git repository: review the whole service: `src/`, `docs/`, `tests/`, `AGENTS.md` and `README.md`.
+
+`git status --short --branch` shows the branch on its first line, then the uncommitted changes.
 
 Then sort the files, because they need different checks:
 
@@ -23,11 +28,19 @@ If none of the files is something people use, nothing has been built for this ch
 ## 2. Run the automated checks
 
 <!-- claude-only -->
+For a branch:
+
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/scripts/lbbexley-check.js" --root . --changed main
 ```
+
+For the whole service:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/scripts/lbbexley-check.js" --root .
+```
 <!-- /claude-only -->
-<!-- copilot: Run `npm run check -- main` (the same standards check, vendored in `.lbbexley/standards/`). -->
+<!-- copilot: Run `npm run check -- main` for a branch, or `npm run check:all` for the whole service (the same standards check, vendored in `.lbbexley/standards/`). -->
 
 When the change includes something people use, run `npm run test:a11y`. If the tests can't run, or a screen or page that changed isn't in `tests/accessibility/targets.json`, say so in the report: that's a gap to close, not a pass. Don't run them for documents only.
 

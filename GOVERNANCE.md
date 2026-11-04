@@ -20,13 +20,13 @@
 4. Bump the version in `.claude-plugin/marketplace.json`, `plugins/lbbexley/.claude-plugin/plugin.json` and `package.json`, and add an entry to `CHANGELOG.md`.
 5. Merge, tag the release (for example `v0.3.0`), and tell developers what changed.
 
-App repositories pin the pull request check and their synced files to a tag, so a release never changes their checks without a pull request of their own.
+App repositories pin the check on GitHub and their synced files to a tag, so a release never changes their checks until they choose to update.
 
 ## How the harness improves itself
 
 At the end of every piece of work, the end-of-run reviewer (a smaller, cheaper model) suggests improvements to the harness as well as checking the work. People decide what changes:
 
-- The reviewer only reads files. Its ideas are written to `.lbbexley/improvements.md` in the app repository, which is reviewed in pull requests like any other file. Ideas that would fail the standards check, such as anything with personal data in it, are dropped.
+- The reviewer only reads files. Its ideas are written to `.lbbexley/improvements.md` in the app repository, which is checked and committed like any other file. Ideas that would fail the standards check, such as anything with personal data in it, are dropped.
 - Developers work through the ideas with `/lbbexley:improve`. Changes to their own service are made there; ideas for the standards become "Harness improvement" issues in this repository. Nothing in this repository changes automatically.
 - Maintainers triage the issues, check each against a source, and accept or decline them with a reason. Accepted ideas follow the process above, including the sign-offs.
 - During the pilot, count ideas logged, accepted and declined. If the reviewer's ideas are mostly noise, change its instructions rather than letting the log grow.
@@ -37,13 +37,13 @@ At the end of every piece of work, the end-of-run reviewer (a smaller, cheaper m
 
 **What we'll measure.**
 
-- Standards check: findings per pull request, and how quickly they fall
+- Standards check: findings per change, and how quickly they fall
 - End-of-run check: problems it finds that the standards check didn't, and how often the assistant stops with problems outstanding
 - Suppressions: how many are added, and whether their reasons hold up in review
 - Harness ideas: logged, accepted and declined
 - Review findings: issues found by `/lbbexley:review` against those found later in testing
 - Accessibility: issues found in manual testing (keyboard, screen reader, zoom)
-- Time from starting a build to its first pull request
+- Time from starting a build to its first finished story
 - Developers' views: what helped, what got in the way, which rules felt wrong
 
 **Decision at the end.** Continue, change, or stop. Before any wider rollout, settle the risks and open decisions below.
@@ -59,15 +59,15 @@ During the pilot, developers use AI subscriptions they pay for themselves (Claud
 - **No central control.** The council can't manage access, see usage, apply policies or remove access when someone leaves.
 - **Cost and fairness.** Staff paying for work tools themselves may not be sustainable or fair, and may raise HR questions.
 
-Controls in place for the pilot: dev environments only, fictional data only, the prompt guard on personal data, the Dataverse guard, commands that import, delete or deploy solutions denied, the standards check on every save, at the end of every run and on every pull request, and the privacy settings in onboarding.
+Controls in place for the pilot: dev environments only, fictional data only, the prompt guard on personal data, the Dataverse guard, commands that import, delete or deploy solutions denied, the standards check on every save and at the end of every run, the assistant committing only once that check is clean and asking before it pushes, the same check on GitHub for every push to `main` and every pull request, and the privacy settings in onboarding.
 
 **Recommendation.** Get Information Governance and the Data Protection Officer to approve the pilot on these terms, and move to a council-managed plan (such as Claude Team or Enterprise, or GitHub Copilot Business) before any wider rollout.
 
 ### Meeting transcripts
 
-Teams transcripts of discovery meetings are the best source of requirements, and they're full of personal data: names, opinions and sometimes residents' details. With personal AI accounts, an uncleaned transcript must never reach an assistant.
+Teams transcripts of discovery meetings are a good source of requirements, and they're full of personal data: names, opinions and sometimes residents' details. They're optional: the requirements skill asks its questions in the chat, or as a table the service team fills in. With personal AI accounts, an uncleaned transcript must never reach an assistant.
 
-Controls: the original stays outside the repository, and `npm run transcript:clean`, which the person runs, never the assistant, writes a copy with roles instead of names and with contact details and reference numbers removed. Names stay in a roles file next to the original. The cleaned copy goes in `docs/discovery/`, which Git ignores, and the template denies Claude Code the cleaner, `.vtt` files and roles files. The data-protection skill (`transcripts.md`) has the checklist a person follows before anything is used, and the requirements skill stops if it finds personal data. Tools can't recognise every name or someone's circumstances, so the person's read-through matters most.
+Controls: the original stays outside the repository, and `npm run transcript:clean`, which the person runs, never the assistant, writes a copy with roles instead of names and with contact details and reference numbers removed. Names stay in a roles file next to the original. The cleaned copy goes in `docs/discovery/`, which Git ignores, and the template denies Claude Code the cleaner, `.vtt` files and roles files. The template's `.gitignore` also ignores `.vtt` and roles files, and the end-of-run check never offers them, or anything in `docs/discovery/`, for a commit. The data-protection skill (`transcripts.md`) has the checklist a person follows before anything is used, and the requirements skill stops if it finds personal data. Tools can't recognise every name or someone's circumstances, so the person's read-through matters most.
 
 **Recommendation.** Ask Information Governance to confirm the approach, including how long originals are kept and whether discovery meetings may be recorded for this purpose.
 
@@ -75,17 +75,21 @@ Controls: the original stays outside the repository, and `npm run transcript:cle
 
 The repositories currently sit under a personal GitHub account (`dbraben`). For rollout, move them to a council GitHub organisation, so ownership, access and audit sit with the council, and update the references in the app template (`.claude/settings.json`, the workflow, CODEOWNERS).
 
+### Work without peer review
+
+To keep things simple for developers, the assistant commits each piece of work on the branch they're on, usually `main`, once the end-of-run check is clean. Nobody else reviews the change before it's saved. The standards check, the end-of-run review and the check on GitHub still run on everything, and `/lbbexley:review` is the definition of done for each story. Teams working on a service together, and any service heading for test or production, should put each change on a branch and open a pull request, so a colleague reviews it. Pipelines still do all deployments.
+
 ### Over-trusting the tools
 
 Automated checks and AI reviewers find many problems, but they can't confirm that a service is accessible, lawful or fair. Automated accessibility tests find only part of the WCAG failures a person would. Manual accessibility testing, testing with users, and sign-off from Information Governance and Communications are still required.
 
 ### Zero findings
 
-Requiring zero findings of any severity keeps standards high, but a rule that fires wrongly blocks work, and people may suppress findings to get past it. Suppressions need a written reason and show up in pull request review, false alarms have their own issue form, and the pilot counts suppressions. Fix noisy rules quickly.
+Requiring zero findings of any severity keeps standards high, but a rule that fires wrongly blocks work, and people may suppress findings to get past it. Suppressions need a written reason and the end-of-run review sees them, false alarms have their own issue form, and the pilot counts suppressions. Fix noisy rules quickly.
 
 ### GitHub Copilot hooks
 
-Copilot's hooks, which run the guardrails and the end-of-run gate in Copilot, are a preview feature. Their behaviour and the information they pass to scripts may change, and there's no prompt guard for personal data in Copilot. The pull request check, which doesn't depend on any assistant, is the backstop. Try the hooks in a test repository after Copilot updates.
+Copilot's hooks, which run the guardrails and the end-of-run gate in Copilot, are a preview feature. Their behaviour and the information they pass to scripts may change, and there's no prompt guard for personal data in Copilot. The check on GitHub, which doesn't depend on any assistant, is the backstop. Try the hooks in a test repository after Copilot updates.
 
 ### Model names and availability
 
@@ -107,3 +111,4 @@ Claude Code's model tiers (`opusplan`, `opus`, `haiku`) follow Anthropic's curre
 | Recording discovery meetings, and how long original transcripts are kept | Originals deleted once the requirements are agreed; cleaned copies never committed | Information Governance |
 | Publishing ATRS records | Recommended for public-facing AI | Digital Team and Information Governance |
 | Repository visibility and licence | Not set | Digital Team |
+| Peer review before go-live | Developers working alone commit to `main`; teams use a branch and a pull request for each change | Digital Team |

@@ -11,7 +11,7 @@ The harness is three repositories. A release comes as one download with a folder
 
 | Folder | Published as | Who uses it |
 |---|---|---|
-| `lbbexley-digital-standards` | `dbraben/lbbexley-digital-standards`, tagged with the release, such as `v0.3.2` | Claude Code installs the plugin from it; every service repository's pull request check runs its workflow |
+| `lbbexley-digital-standards` | `dbraben/lbbexley-digital-standards`, tagged with the release, such as `v0.4.0` | Claude Code installs the plugin from it; every service repository's pull request check runs its workflow |
 | `lbbexley-app-template` | `dbraben/lbbexley-app-template`, marked as a template | Developers select **Use this template** to create their own repository |
 | `lbbexley-ai-build-workshop` | `dbraben/lbbexley-ai-build-workshop` | Developers follow the exercises with a project of their own |
 
@@ -31,9 +31,9 @@ Unzip the download: double-click it. If you've downloaded it more than once, you
 ```bash
 # The standards
 cd ~/Downloads/lbbexley-digital-standards
-git init -b main && git add -A && git commit -m "Bexley digital standards 0.3.2"
+git init -b main && git add -A && git commit -m "Bexley digital standards 0.4.0"
 gh repo create dbraben/lbbexley-digital-standards --public --source . --push
-git tag v0.3.2 && git push origin v0.3.2
+git tag v0.4.0 && git push origin v0.4.0
 gh label create harness-improvement --color 0E8A16 --description "Idea from an end-of-run check"
 gh label create false-alarm --color D93F0B --description "The standards check reported a problem that isn't one"
 
@@ -78,6 +78,13 @@ Pages and screens behind a sign-in also need an **A11Y_STORAGE_STATE** secret: r
 
 ## What's new
 
+### In 0.4.0: a conversation, and the assistant commits the work
+
+- **Requirements in the chat.** `/lbbexley:requirements` asks two or three questions at a time in the chat, or gives the questions as a table to fill in with the service team and paste back later. The table's first line, starting "Bexley requirements answers", tells the skill where it was, in any session. The requirement prompt file has gone: nobody writes files in the repository for this.
+- **The assistant commits.** Once the end-of-run check is clean, Claude commits the work on the current branch, on the person's computer. In Copilot, lbbexley-check offers **Commit the work**. No branches, pushes or pull requests unless the person asks for them.
+- **Review on `main`.** `/lbbexley:review` reviews the whole service when the work is on `main`.
+- **Explained problems are the person's call.** When the assistant explains a reviewer's problem instead of fixing it, the check tells the person once, then lets the work be committed.
+
 ### In 0.3.2: the review checks only what's been built
 
 - **Review.** `/lbbexley:review` checks only the documents when nothing has been built yet, and says the screen checks don't apply, instead of running them on nothing.
@@ -90,7 +97,7 @@ Pages and screens behind a sign-in also need an **A11Y_STORAGE_STATE** secret: r
 
 ### In 0.3.0: start from your own project
 
-- **Requirements.** `/lbbexley:requirements` turns a cleaned Teams meeting transcript, or a developer's own requirement prompt, into `docs/requirements.md`: users, user stories with acceptance criteria, rules, data, duties and open questions. The architect and plan skills start from it.
+- **Requirements.** `/lbbexley:requirements` turns a cleaned Teams meeting transcript, or what the developer tells it, into `docs/requirements.md`: users, user stories with acceptance criteria, rules, data, duties and open questions. The architect and plan skills start from it.
 - **Transcript cleaner.** `npm run transcript:clean` makes a copy of a Teams transcript with roles instead of names and with contact details removed. Originals and names stay outside the repository, and the cleaned copy is never committed.
 - **No set scenario.** The workshop now uses each developer's own project, and the examples in the skills don't share one fictional service.
 
@@ -103,11 +110,11 @@ Pages and screens behind a sign-in also need an **A11Y_STORAGE_STATE** secret: r
 - **Accessibility tests.** Playwright and axe-core against every page and screen, at WCAG 2.2 AA, with reflow and focus tests for Power Pages. The test runner comes from the standards and updates with each release; each service lists its own pages and screens.
 - **Structure** adopted from the web development repository the team liked (path rules, a quality-checks skill, parallel workflows, Dependabot, a dev container, issue forms), and an architect skill based on the open-source power-platform-architect plugin.
 
-The [CHANGELOG](../CHANGELOG.md) has the full list. Release 0.2.0 could fail builds that passed with 0.1.0; 0.3.0, 0.3.1 and 0.3.2 add no new rules.
+The [CHANGELOG](../CHANGELOG.md) has the full list. Release 0.2.0 could fail builds that passed with 0.1.0; 0.3.0 to 0.4.0 add no new rules.
 
 ## What's been checked
 
-- **86 automated tests pass**, covering all 41 rules in the standards check (including contrast through transparent backgrounds), the guardrails, the end-of-run gate and its limits (including files changed by a command, reviews running in the background and review reports that can't be read), the transcript cleaner (WebVTT, Word and text layouts, names, contact details and numbers, and its safety stops), the sync (including the accessibility test runner and links between skills) and the plugin's structure.
+- **88 automated tests pass**, covering all 41 rules in the standards check (including contrast through transparent backgrounds), the guardrails, the end-of-run gate and its limits (including files changed by a command, reviews running in the background, review reports that can't be read, asking for the commit once the check passes, and problems the assistant explained), the transcript cleaner (WebVTT, Word and text layouts, names, contact details and numbers, and its safety stops), the sync (including the accessibility test runner and links between skills) and the plugin's structure.
 - **The transcript cleaner**, run through `npm run transcript:clean` in a copy of the template: the cleaned copy used roles, contact details were removed, nothing was printed or kept in the repository with a name in it, and Git ignored the cleaned file.
 - **The standards check passes on the standards and template repositories** with zero findings. Claude Code's plugin validator passes for the marketplace and the plugin, and actionlint passes for every workflow.
 - **Accessibility tests on sample pages**, run from the synced copy of the test runner. A compliant page passes every check. A page with deliberate failures fails all three tests: axe finds the contrast, page title, language, image alt text and form label problems, and the reflow and focus tests fail too.
@@ -115,10 +122,12 @@ The [CHANGELOG](../CHANGELOG.md) has the full list. Release 0.2.0 could fail bui
 - **Copilot hooks**, run from the synced hooks file with input in the format Copilot documents, on a copy of the template. A Dataverse delete was denied, and an edit that hid keyboard focus was flagged. The end-of-run gate held the agent until the edit was fixed, then asked for lbbexley-check once.
 - **`npm run standards:update`** updated a copy of the template from a local release, changing both the synced files and the workflow's pins.
 - **The end-of-run check with the review in the background**, replayed on a copy of the template with the hook input that Claude Code 2.1.318 documents: a session that renamed the service with a command and edited its plan with the edit tool. Release 0.3.0 asked for the same review four times, then said the review hadn't run, then asked again. Release 0.3.1 waited while the review ran, then passed.
+- **Saving the work**, replayed the same way on a copy of the 0.4.0 template: the set-up, the draft requirements, and the answers table pasted back in a new session. Each time, the review saw the uncommitted changes, then the check asked for the commit, listing only the files the run changed. A transcript and a roles file left in the repository, and the cleaned material in `docs/discovery/`, were never offered, even with the lines that ignore them taken out of `.gitignore`.
 
 ## Not yet checked
 
-- **A live session with 0.3.1's end-of-run check.** The hook calls were replayed, not made by Claude Code itself. In a test repository, ask Claude to change some text with a command, and check that the end-of-run check waits for the review and then passes.
+- **A live session with 0.4.0's end-of-run check.** The hook calls were replayed, not made by Claude Code itself. In a test repository, ask Claude to change some text, and check that the end-of-run check waits for the review, then asks Claude to commit, and that Claude commits only the files it lists. Check Git knows your name first (`git config user.name`), or the commit fails.
+- **The requirements conversation**, both ways: answering in the chat, and pasting the answers table back in a new session.
 - **Copilot hooks** are a preview feature. They were tested with the input VS Code is documented to send, not inside VS Code itself. Try them in a test repository before the pilot.
 - **Copilot model names** need checking against your plans (above).
 - **Real Teams transcripts.** The transcript cleaner was tested with made-up transcripts in the WebVTT and Word layouts Teams uses, not with a real download. Try it on a short real meeting first, and use the `.vtt` download if a `.docx` doesn't work.

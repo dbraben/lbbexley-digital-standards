@@ -165,7 +165,7 @@ test('sync: writes the Copilot skills, agents, path rules, hooks and the standar
   const requirements = read('.github/skills/lbbexley-requirements/SKILL.md');
   assert.match(requirements, /\]\(\.\.\/lbbexley-data-protection\/transcripts\.md\)/, 'links between skills follow the prefix');
   assert.ok(fs.existsSync(path.join(target, '.github/skills/lbbexley-data-protection/transcripts.md')));
-  assert.ok(fs.existsSync(path.join(target, '.github/skills/lbbexley-requirements/requirement-prompt.md')));
+  assert.ok(fs.existsSync(path.join(target, '.github/skills/lbbexley-requirements/questions.md')));
   assert.match(requirements, /In Copilot, the lbbexley-plan agent can't run commands/);
   assert.match(requirements, /`\/lbbexley-architect`/);
   assert.ok(fs.existsSync(path.join(target, '.lbbexley/standards/scripts/clean-transcript.js')));

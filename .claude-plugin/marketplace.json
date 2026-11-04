@@ -4,7 +4,7 @@
     "name": "London Borough of Bexley Digital Team"
   },
   "description": "London Borough of Bexley standards for building Power Platform services with AI coding assistants: brand, accessibility, legal duties and guardrails.",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "plugins": [
     {
       "name": "lbbexley",

@@ -77,20 +77,15 @@ If it doesn't offer, add them yourself:
 
 ## 6. Start from your requirements
 
-Every project starts from what the people who run and use the service said, not from assumptions.
+Every project starts from what the people who run and use the service said, not from assumptions. You don't write or edit any files for this: the assistant asks, and writes the requirements.
 
-1. **Record a discovery conversation** with the service team in Teams, with transcription on. Tell everyone why you're recording and when the transcript will be deleted, and ask them to talk about how the service works, not about particular residents.
-2. **Download the transcript** from the meeting's **Recap** tab, as a `.vtt` file if you can, to your Downloads folder. Never save it in your repository.
-3. **Clean it yourself**, never with the assistant. In your repository's folder, on a Mac:
+1. **Start the conversation.** In Claude Code, press Shift+Tab until it says **accept edits on**, then run `/lbbexley:requirements`. In Copilot, ask **lbbexley-plan** to use the **lbbexley-requirements** skill.
+2. **Answer in the chat, or later.** It sums up what it already knows from the set-up, then asks two or three questions at a time. To answer with the service team instead, say *"Give me the questions as a table"*: copy the table into an email, a Teams chat or a document, fill it in, and paste it back into the chat, including its first line, which starts **Bexley requirements answers**. That line tells the assistant where you were, even in a new session.
+3. **Check the summary** it shows you: the users and their needs, the user stories with priorities, and the open questions. Ask for changes in plain words. It writes `docs/requirements.md`, and commits it for you once the end-of-run check passes. In Copilot, select **Check my work**, then **Commit the work**.
+4. **Ask the service owner to agree it.** Ask for the summary as text, and paste it into an email or a Teams message. When they agree, tell the assistant, so it records their role and the date.
+5. **Design the service** with `/lbbexley:architect`, then plan the first Must story.
 
-   ```bash
-   npm run transcript:clean -- ~/Downloads/<transcript file>.vtt
-   ```
-
-   In PowerShell, use `"$HOME\Downloads\<transcript file>.vtt"`. It writes a cleaned copy to `docs/discovery/`, which is never committed, and a roles file next to the original. Change "Speaker 1" and so on in the roles file to roles such as "Service manager", and run it again. Then read the cleaned copy from start to finish and remove anything else that could identify a person: the checklist is in the data-protection skill (`transcripts.md`).
-4. **Add your own requirement prompt** for anything the meeting didn't cover: copy `.github/skills/lbbexley-requirements/requirement-prompt.md` to `docs/discovery/requirement-prompt.md` and fill it in (`requirement-prompt-example.md` next to it shows the level of detail). Make it in VS Code, on your computer, not on GitHub: a file created on GitHub is published, and the assistant only sees what's on your computer. No transcript? The prompt on its own is enough to start.
-5. **Write the requirements** with `/lbbexley:requirements` (Copilot: the lbbexley-requirements skill, with lbbexley-plan). In Claude Code, switch out of plan mode first (Shift+Tab until it says **accept edits on**), so it saves the file straight away rather than showing you a plan. It writes `docs/requirements.md`: users, user stories with acceptance criteria, rules, data, duties and open questions. The file is in your repository on your computer, on your branch: open it in VS Code. It isn't on GitHub until you push. Ask the service owner to check it.
-6. **Design the service** with `/lbbexley:architect`, then create an issue for each story and plan the first one.
+Describe people by role, never by name, and don't paste anyone's details. To start from a recorded Teams meeting instead, download the transcript as a `.vtt` file to your Downloads folder, and clean it yourself, never with the assistant: `npm run transcript:clean -- ~/Downloads/<transcript file>.vtt` (in PowerShell, `"$HOME\Downloads\<transcript file>.vtt"`). It writes a copy with roles instead of names to `docs/discovery/`, which is never committed, and a roles file next to the original. Change "Speaker 1" and so on in the roles file to roles, run it again, and read the copy through to remove anything else that could identify a person (the data-protection skill's `transcripts.md` has the checklist). The requirements skill reads it with everything else.
 
 ## 7. How to work
 
@@ -98,10 +93,10 @@ Every change goes plan, build, check, each step on the model that suits it.
 
 1. **Plan, on the strongest model.** Sessions start in plan mode with `opusplan`, so Claude Code plans on Opus. Describe the user need, not the screens. For a new service, start from the requirements (step 6); for each change, the plan skill writes the plan to `docs/plans/`, with the words users will read and acceptance criteria. In Copilot, use the **lbbexley-plan** agent. Read the plan and approve it, or ask for changes.
 2. **Build, on the everyday model.** Approving the plan switches Claude Code to Sonnet; in Copilot, choose **Build this plan** to hand over to lbbexley-build. Build in small steps, one screen, flow or topic at a time, and read what the assistant writes. The standards check runs every time it saves a file and sends every finding straight back to it.
-3. **Check, on a smaller model.** When the assistant tries to finish, the end-of-run check runs the standards check on everything it changed, then asks the end-of-run reviewer (Haiku) to review the changes for what tools can't see. Claude Code shows that request as a "Stop hook error": it's the check working, not a fault. The reviewer runs in the background, so the assistant's turn can end while it works, with "the review on the smaller model is still running". When the review reports, the assistant carries on by itself. The assistant fixes what it finds before it can finish. In Copilot, choose **Check my work** to hand over to lbbexley-check. The assistant stops and lists what's outstanding for you if it can't fix a standards problem in three attempts, if it thinks a reviewer's problem is wrong and explains why instead of fixing it, or after five reviews in one request. Decide what to do about each one, and tell the Digital Team if you think a check is wrong.
+3. **Check, on a smaller model.** When the assistant tries to finish, the end-of-run check runs the standards check on everything it changed, then asks the end-of-run reviewer (Haiku) to review the changes for what tools can't see. Claude Code shows that request as a "Stop hook error": it's the check working, not a fault. The reviewer runs in the background, so the assistant's turn can end while it works, with "the review on the smaller model is still running". When the review reports, the assistant carries on by itself. The assistant fixes what it finds before it can finish. When everything passes, the check asks Claude to commit the work for you, on the branch you're on: that's one more "Stop hook error", starting "Bexley end-of-run check passed. Now save the work". You never need to run Git yourself. In Copilot, choose **Check my work** to hand over to lbbexley-check, and when it finds nothing outstanding, **Commit the work**. The assistant stops and lists what's outstanding for you if it can't fix a standards problem in three attempts, if it thinks a reviewer's problem is wrong and explains why instead of fixing it, or after five reviews in one request. Decide what to do about each one: for a reviewer's problem the assistant explained, say if you agree, and it commits the work. Tell the Digital Team if you think a check is wrong.
 4. **Test in your dev environment** with fictional data: `npm run verify` runs the standards check on everything and the accessibility tests. Then test by hand, keyboard only, with a screen reader and at 400% zoom.
 5. **Review.** Run `/lbbexley:review` (Copilot: `/lbbexley-review`) and fix everything it lists, however minor. Do the "Needs a person" tests.
-6. **Pull request.** Commit to a branch and open a pull request with the template. The Quality workflow runs the standards check and, once your environment's address is set up, the accessibility tests. A colleague reviews it.
+6. **Share it.** Ask the assistant to push the work to GitHub: it asks before it pushes. The Quality workflow runs the standards check there too and, once your environment's address is set up, the accessibility tests. Working in a team? Put each change on a branch of its own and open a pull request with the template, so a colleague reviews it.
 
 ### The harness improves itself
 
@@ -109,10 +104,10 @@ The end-of-run reviewer also notes where the harness let you down: a problem the
 
 ### Keeping the standards up to date
 
-When the Digital Team releases a new version of the standards, update your repository in a pull request of its own:
+When the Digital Team releases a new version of the standards, update your repository as a change of its own, with nothing else in it:
 
 ```bash
-npm run standards:update -- v0.3.2
+npm run standards:update -- v0.4.0
 ```
 
 It updates the synced Bexley files and the version the Quality workflow checks against. Claude Code users also update the plugin. In a terminal, run these two commands, then start Claude Code again:

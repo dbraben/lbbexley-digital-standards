@@ -16,7 +16,8 @@ An AI assistant can build a canvas app screen or a Copilot Studio topic in minut
 - **Plan** on the strongest model, with the real words users will read and acceptance criteria someone can check.
 - **Build** on the everyday model. The standards check runs every time the assistant saves a file, and sends every problem straight back to it.
 - **Check** on a smaller model before the assistant can finish: the standards check on everything it changed, and a review for what tools can't see.
-- **Every pull request** is checked again on GitHub, whichever assistant wrote the code, or none.
+- **Committed for you.** Once the check passes, the assistant commits the work, on your computer. Nobody has to run Git.
+- **On GitHub**, every push to `main` and every pull request is checked again, whichever assistant wrote the code, or none.
 
 Zero findings of any severity is the definition of done.
 
@@ -54,8 +55,8 @@ Set your AI account's privacy settings first: the [onboarding guide](docs/onboar
 2. Clone **your** repository, open it in VS Code, and trust the folder.
 3. Run `claude` in VS Code's terminal and accept its offer to add the Bexley plugin. Check it's on with `/plugin`.
 4. Run `/lbbexley:new-app` and answer the questions about your service.
-5. Capture the requirements. Clean a Teams meeting transcript with `npm run transcript:clean`, or write your own requirement prompt in `docs/discovery/`, then run `/lbbexley:requirements` and `/lbbexley:architect`.
-6. For each change: describe it in plan mode, read and approve the plan, and let the end-of-run check finish. Run `/lbbexley:review` before you open a pull request in your repository.
+5. Run `/lbbexley:requirements`. Claude asks about the service in the chat, a few questions at a time, or gives you the questions as a table to answer with the service team and paste back later. Then run `/lbbexley:architect`.
+6. For each change: describe it in plan mode, read and approve the plan, and let the end-of-run check finish. Claude commits finished work for you. Run `/lbbexley:review` before you share it, for example in a pull request.
 
 **With GitHub Copilot**
 
@@ -63,18 +64,18 @@ Set your AI account's privacy settings first: the [onboarding guide](docs/onboar
 2. Clone **your** repository, open it in VS Code, and trust the folder.
 3. Open the chat view in **Agent** mode. The Bexley agents, skills and rules are already in your repository: check the agent picker lists **lbbexley-plan**, **lbbexley-build** and **lbbexley-check**.
 4. Choose **lbbexley-build** and ask it to use the **lbbexley-new-app** skill. Answer the questions about your service.
-5. Capture the requirements. Clean a Teams meeting transcript with `npm run transcript:clean`, or write your own requirement prompt in `docs/discovery/`, then ask **lbbexley-plan** to use the **lbbexley-requirements** skill, then **lbbexley-architect**.
-6. For each change: plan it with **lbbexley-plan**, select **Build this plan**, then **Check my work**. Use the **lbbexley-review** skill before you open a pull request in your repository.
+5. Ask **lbbexley-plan** to use the **lbbexley-requirements** skill. Copilot asks about the service in the chat, a few questions at a time, or gives you the questions as a table to answer with the service team and paste back later. Then use **lbbexley-architect**.
+6. For each change: plan it with **lbbexley-plan**, select **Build this plan**, then **Check my work**, then **Commit the work**. Use the **lbbexley-review** skill before you share it, for example in a pull request.
 
 ## Commands you'll use
 
 | To | Claude Code | GitHub Copilot |
 |---|---|---|
 | Set up a new service | `/lbbexley:new-app` | The lbbexley-new-app skill |
-| Turn a cleaned transcript or your requirement prompt into requirements | `/lbbexley:requirements` | The lbbexley-requirements skill, with lbbexley-plan |
+| Work out the requirements, in the chat | `/lbbexley:requirements` | The lbbexley-requirements skill, with lbbexley-plan |
 | Design a service | `/lbbexley:architect` | The lbbexley-architect skill, with lbbexley-plan |
 | Plan a change | Plan mode, or `/lbbexley:plan` | The lbbexley-plan agent |
-| Review before a pull request | `/lbbexley:review` | The lbbexley-review skill |
+| Review a story before it's done | `/lbbexley:review` | The lbbexley-review skill |
 | Work through ideas for the harness | `/lbbexley:improve` | The lbbexley-improve skill |
 
 In a terminal in your repository, with either assistant:
@@ -113,7 +114,7 @@ Your repository refers to these standards in four places: the Claude Code plugin
 |---|---|
 | **Skills** (`plugins/lbbexley/skills/`) | The standards, written as instructions the assistant loads when they're relevant: brand, accessibility, content style, publicity, data protection, equality, AI transparency, one skill per platform, and the skills for requirements, design, planning, checking and improving the work |
 | **Agents** (`plugins/lbbexley/agents/`) | Three read-only reviewers: accessibility and compliance (used by the review), and the end-of-run reviewer, which runs on a smaller model at the end of every piece of work |
-| **Guardrails** (`plugins/lbbexley/hooks/`) | Stop prompts that contain real-looking personal data, ask before the assistant reads or changes Dataverse records (and block deletes), check every file the assistant saves, and hold the assistant back at the end of a run until everything it changed passes and has been reviewed |
+| **Guardrails** (`plugins/lbbexley/hooks/`) | Stop prompts that contain real-looking personal data, ask before the assistant reads or changes Dataverse records (and block deletes), check every file the assistant saves, hold the assistant back at the end of a run until everything it changed passes and has been reviewed, and then have it commit the work |
 | **Standards check** (`plugins/lbbexley/scripts/lbbexley-check.js`) | 41 mechanical rules, many mapped to WCAG 2.2, used after each save, at the end of each run, from the command line, and on every pull request. Any finding fails it |
 | **Transcript cleaner** (`plugins/lbbexley/scripts/clean-transcript.js`) | Makes a copy of a Teams meeting transcript that's safe to use for requirements: speakers named by role, contact details and reference numbers removed, and names kept next to the original, outside the repository |
 | **Pull request check** (`.github/workflows/standards-check.yml`) | A reusable workflow every service repository calls, so code is checked whatever tool wrote it |

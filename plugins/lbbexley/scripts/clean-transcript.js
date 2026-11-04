@@ -172,7 +172,7 @@ function main() {
   const outRel = output.split(path.sep).join('/');
   const lines = [
     `Cleaned: ${plural(speakers.length, 'speaker')}, ${plural(paragraphs, 'paragraph')}.`,
-    `Saved: ${outRel} (it stays on your computer: ${DISCOVERY.split(path.sep).join('/')}/ is never committed)`,
+    `Saved: ${outRel} (Git ignores ${DISCOVERY.split(path.sep).join('/')}/, but approved AI tools may still read it, so keep it clean)`,
     `Removed: ${removed || 'nothing found'}.`,
   ];
   if (unnamed) {

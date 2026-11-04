@@ -14,7 +14,7 @@ Work in three steps, each on the right model:
 
 Put the hard thinking into the plan, so building is straightforward and the check finds nothing.
 
-Read `docs/requirements.md` and `docs/architecture.md` first if they exist. When the change is one of the user stories, start from its user need and acceptance criteria, and name the story and its issue in the plan. Save the plan in `docs/plans/`, named like `2026-11-02-first-screen.md`.
+Read `docs/requirements.md` and `docs/architecture.md` first if they exist. When the change is one of the user stories, start from its user need and acceptance criteria, and name the story in the plan, with its issue if it has one. Save the plan in `docs/plans/`, named like `2026-11-02-first-screen.md`.
 
 ## Plan template
 

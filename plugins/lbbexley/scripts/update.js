@@ -2,7 +2,7 @@
 'use strict';
 // Updates an app repository to a release of the Bexley standards:
 //
-//   npm run standards:update -- v0.3.2
+//   npm run standards:update -- v0.4.0
 //
 // Downloads that release of the standards into a temporary folder, runs its
 // sync (Copilot skills and agents, path rules, Copilot hooks and these
@@ -24,7 +24,7 @@ const { loadStandards } = require('./lib/config');
 function main() {
   const version = process.argv[2];
   if (!version || !/^(v\d+\.\d+\.\d+|main)$/.test(version)) {
-    process.stderr.write('Usage: npm run standards:update -- v0.3.2\n');
+    process.stderr.write('Usage: npm run standards:update -- v0.4.0\n');
     return 2;
   }
   const root = process.cwd();
