@@ -2,6 +2,37 @@
 
 All notable changes to the Bexley digital standards. Versions follow `major.minor.patch`: a new rule that can fail existing builds is a minor version at least.
 
+## 0.5.0 – 4 November 2026
+
+Fixes from a review of the workshop and the tests. There are no new rules, but two checks are stricter, so a build that passed with 0.4.0 can fail: the accessibility tests fail a page or screen they couldn't test, and the check on GitHub fails when `.claude/settings.json` or the Quality workflow names a different release from the synced files.
+
+Accessibility tests:
+
+- **Not tested isn't passed.** A target with `auth: true` fails when there's no saved sign-in, instead of being left out while the run passed, and fails when it lands on a sign-in page because the saved sign-in has expired. With `A11Y_BASE_URL` set, an empty `targets.json` fails. A workflow that can't sign in sets `A11Y_SKIP_SIGNED_IN=1`, and the targets that need a sign-in are reported as skipped instead. The report, and on GitHub the run's summary, says how many targets were run.
+- **Signing in.** `npm run test:a11y:login` works out every address before it opens a browser. A path with no `A11Y_BASE_URL` gets a message with the PowerShell and Mac commands that set it. It also waits while the browser is on Power Pages' own sign-in page: before, it saved an empty sign-in straight away when a page sent the browser to `/SignIn`.
+
+End-of-run check:
+
+- **Deletions are reviewed and committed.** A file deleted in the run goes to the end-of-run review, marked "(deleted)", and the reviewer reports the deletion if it removes a test, a test target, a requirement or a check without a written reason. The commit includes the deletion. Before, deletions were left out of both. A deletion made before the session started is left alone.
+- **A Copilot review isn't assumed.** Copilot doesn't tell the hooks whether lbbexley-check ran. When the agent stops again with nothing changed, the check now says the review isn't confirmed and to select **Check my work**, instead of recording the files as reviewed. It asks again after any later change.
+- **Hook output for VS Code.** The Copilot hooks also give their answer in the `hookSpecificOutput` form that VS Code's hooks reference describes, as well as the form the Copilot CLI documents.
+
+Claude Code plugin:
+
+- **Pinned to the release.** The template's `.claude/settings.json` installs the plugin from the release (`"ref": "v0.5.0"`) instead of the standards repository's default branch, so Claude Code uses the same standards as Copilot and the check on GitHub. `npm run standards:update` moves this pin with the others, then moves the installed plugin to the release (`claude plugin marketplace add dbraben/lbbexley-digital-standards#<release> --scope project`, then `claude plugin update lbbexley@lbbexley-digital`). If it can't, it gives the two commands to type, with `--scope local` so they don't rewrite `.claude/settings.json`. Updating the marketplace on its own doesn't move the plugin to a new release.
+- **Updating from 0.4.0.** Run `npm run standards:update -- v0.5.0` twice. The first run brings in the new updater, and says the marketplace isn't pinned; the second pins it and moves the plugin.
+- **One release everywhere.** The sync check, which the check on GitHub runs, fails when `.claude/settings.json` or `.github/workflows/quality.yml` names a release other than the synced files' (a commit SHA in the workflow is allowed). In a repository made from an older template, the sync says how to add the pin.
+- **Pre-election periods** added in a patch release reach Claude Code's session reminder when a service updates to that release, as they already did for Copilot. The check on GitHub still reads them from `main`, so it warns straight away.
+
+Planning: when there's no `docs/architecture.md`, Copilot's lbbexley-plan offers the architect skill, but plans from the requirements if the person wants to, as in the workshop's short session.
+
+Template:
+
+- `docs/compliance/README.md` no longer fails the release check: it describes the placeholders in words instead of showing one.
+- The Quality workflow passes `A11Y_SKIP_SIGNED_IN` to the accessibility tests. `tests/accessibility/targets.json` says to give a full address or set `A11Y_BASE_URL` before signing in, and to give every target that needs a sign-in a `waitFor`.
+
+Docs: the onboarding, setup and maintaining guides have the new plugin commands, the Dataverse MCP server on a Mac or Linux (`claude mcp add --scope local`), and `A11Y_SKIP_SIGNED_IN`.
+
 ## 0.4.0 – 4 November 2026
 
 The requirements are a conversation in the chat, and the assistant commits the work, so nobody has to write files in the repository or run Git. Nothing in this release can fail a build that passed with 0.3.2.

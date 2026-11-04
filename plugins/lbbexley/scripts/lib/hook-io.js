@@ -2,7 +2,9 @@
 // Reads hook input and writes hook output for both assistants:
 //   - Claude Code (plugin hooks): snake_case input, Claude Code output fields
 //   - GitHub Copilot (repository hooks in .github/hooks/lbbexley.json, preview):
-//     camelCase or snake_case input, Copilot output fields
+//     camelCase or snake_case input. Output carries the top-level fields the
+//     Copilot harness reads and the hookSpecificOutput that VS Code's own
+//     (Local) harness documents, so it works whichever one runs the hooks.
 // The Copilot hook file sets LBBEXLEY_HARNESS=copilot so the scripts know.
 
 function readStdin() {
@@ -65,20 +67,22 @@ function normalise(input) {
 
 // Context for the assistant at session start.
 function sessionContext(text) {
-  if (harness() === 'copilot') return emit({ additionalContext: text });
+  if (harness() === 'copilot') return emit({ additionalContext: text, hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } });
   return emit({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } });
 }
 
 // Allow, ask or deny a tool call.
 function toolDecision(decision, reason) {
-  if (harness() === 'copilot') return emit({ permissionDecision: decision, permissionDecisionReason: reason });
+  if (harness() === 'copilot') {
+    return emit({ permissionDecision: decision, permissionDecisionReason: reason, hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: decision, permissionDecisionReason: reason } });
+  }
   return emit({ hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: decision, permissionDecisionReason: reason } });
 }
 
 // Problems found after a tool ran. Claude Code is made to fix them straight
 // away (exit 2); Copilot gets them as context, and the stop gate enforces them.
 function afterTool(text, { mustFix }) {
-  if (harness() === 'copilot') return emit({ additionalContext: text });
+  if (harness() === 'copilot') return emit({ additionalContext: text, hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: text } });
   if (mustFix) {
     process.stderr.write(text + '\n');
     process.exitCode = 2;
@@ -90,6 +94,7 @@ function afterTool(text, { mustFix }) {
 // Keep the assistant working instead of finishing, or let it finish with a
 // message for the person.
 function blockStop(reason) {
+  if (harness() === 'copilot') return emit({ decision: 'block', reason, hookSpecificOutput: { hookEventName: 'Stop', decision: 'block', reason } });
   return emit({ decision: 'block', reason });
 }
 

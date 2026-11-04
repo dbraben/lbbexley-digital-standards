@@ -4,12 +4,14 @@ London Borough of Bexley standards for building Power Platform services with Cla
 
 ## Install
 
-Claude Code offers to install it when you trust a folder made from the Bexley app template. To install it yourself:
+Claude Code offers to install it when you trust a folder made from the Bexley app template, from the release in the repository's `.claude/settings.json`. To install it yourself, for one repository on this computer, run these in a terminal in the repository, with the release in its `.github/workflows/quality.yml`:
 
-```text
-/plugin marketplace add dbraben/lbbexley-digital-standards
-/plugin install lbbexley@lbbexley-digital
+```bash
+claude plugin marketplace add dbraben/lbbexley-digital-standards#v0.5.0 --scope local
+claude plugin install lbbexley@lbbexley-digital --scope local
 ```
+
+`npm run standards:update` moves it to a new release with the rest of the repository.
 
 ## Skills
 

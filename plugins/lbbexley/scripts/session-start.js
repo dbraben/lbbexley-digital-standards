@@ -2,14 +2,16 @@
 'use strict';
 // Session start: a short reminder of how work runs here, a prompt to finish
 // setting up a new app, waiting harness-improvement ideas, and a warning during
-// pre-election periods. Also notes the start time, so the stop gate knows which
-// changes belong to this session. Quiet outside Bexley app repositories.
+// pre-election periods. Also notes the start time, and any deletions not yet
+// committed, so the stop gate knows which changes belong to this session.
+// Quiet outside Bexley app repositories.
 
 const fs = require('fs');
 const path = require('path');
 const { readStdin, normalise, sessionContext, harness } = require('./lib/hook-io');
 const { isBexleyProject, loadElectionPeriods, londonToday } = require('./lib/config');
 const { load, save } = require('./lib/state');
+const { deletedFiles } = require('./lib/git');
 
 (async () => {
   if (process.env.LBBEXLEY_NESTED === '1') return;
@@ -20,12 +22,13 @@ const { load, save } = require('./lib/state');
   const state = load(root, input.sessionId);
   if (!state.startedAt) {
     state.startedAt = Date.now();
+    state.deletedAtStart = deletedFiles(root) || [];
     save(root, input.sessionId, state);
   }
 
   const review = harness() === 'copilot' ? 'the lbbexley-review skill' : '/lbbexley:review';
   const parts = [
-    `Bexley standards are active: dev environments and fictional data only. Work in three steps: plan (strongest model, plan mode), build, then the end-of-run check on a smaller model, which runs automatically before you finish. Zero standards findings of any severity is the definition of done; run ${review} before a pull request.`,
+    `Bexley standards are active: dev environments and fictional data only. Work in three steps: plan (strongest model, plan mode), build, then the end-of-run check on a smaller model, which runs automatically before you finish. Once the check is clean, the work is committed. Zero standards findings of any severity is the definition of done; run ${review} before a story is done.`,
   ];
 
   try {

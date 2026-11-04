@@ -14,6 +14,11 @@
 //     person, and only after the review, which reads the uncommitted changes.
 //     In Copilot, lbbexley-check offers the commit as a handover instead.
 //
+// Deleting a file is a change too: this run's deletions are reviewed and
+// committed with the rest. Copilot doesn't tell the gate whether lbbexley-check
+// ran, so there the gate asks for the check once per set of changes and then
+// says the review isn't confirmed, rather than recording it as done.
+//
 // Claude Code runs the reviewer in the background, so the assistant's turn can
 // end while the review is still going. The gate waits for it rather than
 // asking again: the review's report starts a turn of its own, and the gate runs
@@ -36,7 +41,7 @@ const path = require('path');
 const { readStdin, normalise, harness, blockStop, allowStop } = require('./lib/hook-io');
 const { loadStandards, isBexleyProject } = require('./lib/config');
 const { checkPath, isCheckable, isIgnoredPath, loadIgnoreFile, ignoreRulesFor } = require('./lib/checks');
-const { changedFiles, workingDiff } = require('./lib/git');
+const { changedFiles, deletedFiles, workingDiff } = require('./lib/git');
 const { stateDir, load, save, hashFile, unreviewed } = require('./lib/state');
 
 const MAX_SAME_HOLDS = 3;
@@ -67,16 +72,18 @@ function reviewRunning(raw, state) {
   return started > finished && Date.now() - started < REVIEW_TIMEOUT_MS;
 }
 
-function writeReviewRequest(root, files, sessionId) {
+const listed = (files, deleted) => files.map(f => `- ${f}${deleted.has(f) ? ' (deleted)' : ''}`);
+
+function writeReviewRequest(root, files, deleted, sessionId) {
   const diff = workingDiff(root, files);
   const text = [
     '# End-of-run review request',
     '',
     `Session ${sessionId}. Review only these files, which changed in this run:`,
     '',
-    ...files.map(f => `- ${f}`),
+    ...listed(files, deleted),
     '',
-    'New files appear in full when you read them. Changes to tracked files:',
+    'New files appear in full when you read them. A deleted file appears in the diff: check the deletion was meant, and that it doesn\'t remove a test, a requirement or a check without a written reason. Changes to tracked files:',
     '',
     '```diff',
     diff.trim() || '(no tracked changes: the files are new)',
@@ -123,6 +130,12 @@ function writeReviewRequest(root, files, sessionId) {
     }
   });
   const runFiles = [...new Set([...state.edited, ...fromGit])].filter(usable).sort();
+  // Files this run deleted: deletions not yet committed that weren't there when
+  // the session started.
+  const deletedAtStart = new Set(state.deletedAtStart || []);
+  const deletedNow = (deletedFiles(root) || []).filter(rel => !deletedAtStart.has(rel));
+  const deleted = new Set(deletedNow);
+  const deletedToReview = deletedNow.filter(rel => isCheckable(rel) && !isIgnoredPath(rel, cfg));
 
   // 1. The standards check.
   const ignoreEntries = loadIgnoreFile(root);
@@ -141,7 +154,11 @@ function writeReviewRequest(root, files, sessionId) {
   // the person's discovery material (docs/discovery/, never committed) get the
   // standards check above but not a review.
   const reviewOn = (process.env.LBBEXLEY_END_OF_RUN || process.env.EVAL_LBBEXLEY_END_OF_RUN) !== '0';
-  const unseen = reviewOn ? unreviewed(root, state, runFiles.filter(rel => !rel.startsWith('.lbbexley/') && !rel.startsWith('docs/discovery/'))) : [];
+  const toReview = [...runFiles, ...deletedToReview].filter(rel => !rel.startsWith('.lbbexley/') && !rel.startsWith('docs/discovery/')).sort();
+  // In Copilot, files already handed to lbbexley-check in their current form
+  // aren't asked about again, though the review isn't recorded as done.
+  const askedOnly = state.askedOnly || {};
+  const unseen = reviewOn ? unreviewed(root, state, toReview).filter(rel => !(copilot && askedOnly[rel] === hashFile(root, rel))) : [];
   const capped = unseen.length > 0 && (state.reviewRounds || 0) >= MAX_REVIEW_ROUNDS;
   const needReview = capped ? [] : unseen;
 
@@ -151,7 +168,7 @@ function writeReviewRequest(root, files, sessionId) {
 
     // 4. Save the work: what this run changed and hasn't been committed.
     const edited = new Set(state.edited);
-    const toCommit = [...new Set(uncommitted.filter(rel => edited.has(rel) || fromGit.includes(rel)))]
+    const toCommit = [...new Set([...uncommitted.filter(rel => edited.has(rel) || fromGit.includes(rel)), ...deletedNow])]
       .filter(rel => !NEVER_COMMIT.test(rel.replace(/\\/g, '/')))
       .sort();
     const askedFor = personAt === undefined ? `session ${startedAt}` : personAt;
@@ -160,7 +177,7 @@ function writeReviewRequest(root, files, sessionId) {
       save(root, input.sessionId, state);
       blockStop([
         `Bexley end-of-run check passed. Now save the work, as AGENTS.md says: commit the ${toCommit.length} file(s) this run changed, on the current branch, with a short message saying what changed, and tell the person it's committed. Don't make a branch, push or open a pull request unless they asked:`,
-        ...toCommit.map(f => `- ${f}`),
+        ...listed(toCommit, deleted),
       ].join('\n'));
       return;
     }
@@ -198,10 +215,14 @@ function writeReviewRequest(root, files, sessionId) {
   state.holds = fp === state.lastFingerprint ? (state.holds || 0) + 1 : 1;
   state.lastFingerprint = fp;
 
-  // Copilot can't confirm the review ran, so it's asked once per set of changes.
+  // Copilot can't confirm the review ran, so it's asked once per set of changes,
+  // and then the person is told the review isn't confirmed. Nothing is marked as
+  // reviewed: only a reviewer's report does that.
   if (!problems.length && !stillOpen.length && copilot && state.reviewRequested === fp) {
-    for (const rel of needReview) state.reviewed[rel] = hashFile(root, rel);
+    state.askedOnly = askedOnly;
+    for (const rel of needReview) state.askedOnly[rel] = hashFile(root, rel);
     save(root, input.sessionId, state);
+    allowStop(`Bexley end-of-run check: the review of ${needReview.length} changed file(s) isn't confirmed, because Copilot doesn't tell the check whether lbbexley-check ran. If you haven't yet, select Check my work, and commit only when it finds nothing outstanding.`);
     return;
   }
 
@@ -241,7 +262,7 @@ function writeReviewRequest(root, files, sessionId) {
       "Fix them. If you're sure one is wrong, explain why to the person instead of changing the file.",
     ].join('\n');
   } else {
-    writeReviewRequest(root, needReview, input.sessionId);
+    writeReviewRequest(root, needReview, deleted, input.sessionId);
     state.pendingReview = { fp, files: needReviewHashes };
     state.reviewRequested = fp;
     state.reviewRounds = (state.reviewRounds || 0) + 1;
@@ -250,7 +271,7 @@ function writeReviewRequest(root, files, sessionId) {
       : 'run the lbbexley:end-of-run-reviewer agent (it runs on Haiku, a smaller model) on this run\'s changes';
     reason = [
       `End-of-run check: before finishing, ${who}. It reads .lbbexley/state/review-request.md, which lists the ${needReview.length} file(s) changed:`,
-      ...needReview.map(f => `- ${f}`),
+      ...listed(needReview, deleted),
       ...(copilot ? [] : ['Start it once. If it runs in the background, end your turn: its report comes back to you when it finishes.']),
       'Fix every problem it reports, however minor, then finish. Its ideas for improving the harness are logged automatically.',
     ].join('\n');

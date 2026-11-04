@@ -204,6 +204,49 @@ const RUNNER = '.lbbexley/standards/tests/accessibility';
 const OLD_RUNNER_FILES = ['a11y.spec.js', 'shared.js', 'playwright.config.js', 'login.js'];
 
 const TRANSCRIPT_CLEAN = 'node .lbbexley/standards/scripts/clean-transcript.js';
+const MARKETPLACE = 'lbbexley-digital';
+
+// The release Claude Code installs the Bexley plugin from, if the repository
+// pins one: extraKnownMarketplaces in .claude/settings.json.
+function readSettings(target) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(target, '.claude', 'settings.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function marketplacePin(settings) {
+  const source = settings && settings.extraKnownMarketplaces && settings.extraKnownMarketplaces[MARKETPLACE] && settings.extraKnownMarketplaces[MARKETPLACE].source;
+  if (!source || source.source !== 'github') return { declared: false, ref: null };
+  return { declared: true, ref: source.ref || null };
+}
+
+// The other places an app repository names a release of the standards: the
+// Claude Code plugin's marketplace, and the check on GitHub with the standards
+// it checks against. Any other release there means those use different
+// standards from these files. A commit SHA in the workflow is left alone.
+function pinMismatches(target) {
+  const want = `v${VERSION}`;
+  const out = [];
+  const pin = marketplacePin(readSettings(target));
+  if (pin.ref && pin.ref !== want) out.push(`.claude/settings.json installs the Claude Code plugin from ${pin.ref}, not ${want}`);
+  let workflow = '';
+  try {
+    workflow = fs.readFileSync(path.join(target, '.github', 'workflows', 'quality.yml'), 'utf8');
+  } catch {
+    // No quality workflow: nothing to compare.
+  }
+  const found = [
+    [workflow.match(/standards-check\.yml@(\S+)/), 'runs the check on GitHub from'],
+    [workflow.match(/standards-ref:\s*(\S+)/), 'checks against the standards at'],
+  ];
+  for (const [m, what] of found) {
+    const ref = m && m[1].replace(/^['"]|['"]$/g, '');
+    if (ref && ref !== want && !/^[0-9a-f]{40}$/i.test(ref)) out.push(`.github/workflows/quality.yml ${what} ${ref}, not ${want}`);
+  }
+  return out;
+}
 
 function migrationNotes(target) {
   const notes = [];
@@ -226,6 +269,21 @@ function migrationNotes(target) {
   if (old.length) notes.push(`Delete the old copies of the test runner in tests/accessibility/ (${old.join(', ')}). Keep targets.json: it's yours.`);
   if (app && !fs.existsSync(path.join(target, 'docs', 'discovery', '.gitignore'))) {
     notes.push('Add docs/discovery/.gitignore and docs/discovery/README.md from the app template, so cleaned meeting transcripts are never committed.');
+  }
+  const settings = readSettings(target);
+  const pin = marketplacePin(settings);
+  if (pin.declared && !pin.ref) {
+    notes.push(`In .claude/settings.json, pin the Bexley marketplace to this release, so Claude Code uses the same standards as the other checks: add "ref": "v${VERSION}" to extraKnownMarketplaces.${MARKETPLACE}.source. Or run npm run standards:update -- v${VERSION} again: from this release, it does that for you and moves the plugin too.`);
+  }
+  const allow = (settings && settings.permissions && settings.permissions.allow) || [];
+  if (settings && !allow.includes('Bash(git commit *)')) {
+    notes.push('In .claude/settings.json, add "Bash(git add *)", "Bash(git commit *)" and the PowerShell versions to permissions.allow, so Claude can commit the work for people without asking. Keep git push in the ask list.');
+  }
+  try {
+    const ignore = fs.readFileSync(path.join(target, '.gitignore'), 'utf8');
+    if (app && !/^\*\.vtt$/m.test(ignore)) notes.push('In .gitignore, add *.vtt and *.roles.json, so an original meeting transcript put in the repository by mistake is never committed.');
+  } catch {
+    // No .gitignore: nothing to say.
   }
   return notes;
 }
@@ -302,7 +360,8 @@ function main() {
 
   const expected = expectedFiles();
   const d = diff(expected, currentFiles(target));
-  const drift = d.missing.length + d.changed.length + d.extra.length;
+  const pins = pinMismatches(target);
+  const drift = d.missing.length + d.changed.length + d.extra.length + pins.length;
 
   if (opts.check) {
     printNotes(target);
@@ -314,6 +373,7 @@ function main() {
     for (const p of d.missing) process.stdout.write(`  missing  ${p}\n`);
     for (const p of d.changed) process.stdout.write(`  changed  ${p}\n`);
     for (const p of d.extra) process.stdout.write(`  extra    ${p}\n`);
+    for (const p of pins) process.stdout.write(`  pinned   ${p}\n`);
     process.stdout.write('Update them with npm run standards:update -- <version>.\n');
     return 1;
   }

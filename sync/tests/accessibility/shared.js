@@ -20,6 +20,9 @@ const CANVAS_FRAME = 'iframe[name="fullscreen-app-host"]';
 // WCAG 2.0, 2.1 and 2.2, levels A and AA.
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
+// Sign-in pages: Microsoft's, and Power Pages' own (/SignIn, Azure AD B2C).
+const SIGN_IN_PAGE = /login\.(microsoftonline|live|windows)\.(com|net)|\.b2clogin\.com\/|\/SignIn\b/i;
+
 function loadTargets() {
   if (!fs.existsSync(TARGETS)) return [];
   const data = JSON.parse(fs.readFileSync(TARGETS, 'utf8'));
@@ -33,4 +36,4 @@ function absoluteUrl(url) {
   return new URL(url, base.endsWith('/') ? base : `${base}/`).toString();
 }
 
-module.exports = { ROOT, TARGETS, STATE, CANVAS_FRAME, WCAG_TAGS, loadTargets, absoluteUrl };
+module.exports = { ROOT, TARGETS, STATE, CANVAS_FRAME, WCAG_TAGS, SIGN_IN_PAGE, loadTargets, absoluteUrl };

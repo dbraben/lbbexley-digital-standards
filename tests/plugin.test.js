@@ -285,3 +285,90 @@ test('sync: leaves the repository\'s own files alone, removes stale ones and det
   assert.match(drift.stdout, /missing {2}\.claude\/rules\/lbbexley-flows\.md/);
   assert.match(drift.stdout, /npm run standards:update/);
 });
+
+const VERSION = readJson(path.join(PLUGIN, '.claude-plugin', 'plugin.json')).version;
+const settingsPinnedTo = ref => JSON.stringify({
+  extraKnownMarketplaces: { 'lbbexley-digital': { source: { source: 'github', repo: 'dbraben/lbbexley-digital-standards', ...(ref ? { ref } : {}) } } },
+  permissions: { allow: ['Bash(git add *)', 'Bash(git commit *)'] },
+}, null, 2);
+const workflowPinnedTo = (uses, ref) => [
+  'jobs:',
+  '  standards:',
+  `    uses: dbraben/lbbexley-digital-standards/.github/workflows/standards-check.yml@${uses}`,
+  '    with:',
+  `      standards-ref: ${ref}`,
+  '',
+].join('\n');
+
+test('sync: a different release named for Claude Code or the check on GitHub fails the check', () => {
+  const target = tempRepo({
+    '.claude/settings.json': settingsPinnedTo('v0.0.1'),
+    '.github/workflows/quality.yml': workflowPinnedTo('v0.0.1', 'v0.0.2'),
+  });
+  run(SYNC, ['--target', target]);
+  const res = run(SYNC, ['--target', target, '--check']);
+  assert.equal(res.code, 1);
+  assert.match(res.stdout, new RegExp(`pinned {3}\\.claude/settings\\.json installs the Claude Code plugin from v0\\.0\\.1, not v${VERSION.replace(/\./g, '\\.')}`));
+  assert.match(res.stdout, /pinned {3}\.github\/workflows\/quality\.yml runs the check on GitHub from v0\.0\.1/);
+  assert.match(res.stdout, /pinned {3}\.github\/workflows\/quality\.yml checks against the standards at v0\.0\.2/);
+  assert.match(res.stdout, /npm run standards:update/);
+
+  fs.writeFileSync(path.join(target, '.claude/settings.json'), settingsPinnedTo(`v${VERSION}`));
+  fs.writeFileSync(path.join(target, '.github/workflows/quality.yml'), workflowPinnedTo(`v${VERSION}`, `'v${VERSION}'`));
+  const same = run(SYNC, ['--target', target, '--check']);
+  assert.equal(same.code, 0, same.stdout);
+  assert.doesNotMatch(same.stdout, /pinned|To finish moving/);
+
+  fs.writeFileSync(path.join(target, '.github/workflows/quality.yml'), workflowPinnedTo('ab12'.repeat(10), `v${VERSION}`));
+  assert.equal(run(SYNC, ['--target', target, '--check']).code, 0, 'a commit SHA in the workflow is left alone');
+});
+
+test('sync: says how to pin the marketplace, let Claude commit and ignore transcripts in an older repository', () => {
+  const target = tempRepo({
+    'package.json': JSON.stringify({ scripts: { 'transcript:clean': 'node .lbbexley/standards/scripts/clean-transcript.js' } }),
+    'docs/discovery/.gitignore': '*\n!.gitignore\n!README.md\n',
+    '.claude/settings.json': JSON.stringify({ extraKnownMarketplaces: { 'lbbexley-digital': { source: { source: 'github', repo: 'dbraben/lbbexley-digital-standards' } } } }),
+    '.gitignore': '.env\n.auth/\n',
+  });
+  const res = run(SYNC, ['--target', target]);
+  assert.match(res.stdout, new RegExp(`pin the Bexley marketplace to this release.+add "ref": "v${VERSION.replace(/\./g, '\\.')}"`));
+  assert.match(res.stdout, /add "Bash\(git add \*\)", "Bash\(git commit \*\)"/);
+  assert.match(res.stdout, /In \.gitignore, add \*\.vtt and \*\.roles\.json/);
+  assert.equal(run(SYNC, ['--target', target, '--check']).code, 0, 'an unpinned marketplace is a note, not drift');
+});
+
+test('update: moves the check on GitHub and the Claude Code marketplace to the release, and keeps settings.json as it was otherwise', () => {
+  const { spawnSync } = require('child_process');
+  const os = require('os');
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'lbbexley-update-'));
+  const git = (cwd, ...a) => spawnSync('git', a, { cwd, encoding: 'utf8' });
+  // A local copy of the standards with a release tag, so nothing is downloaded.
+  const standards = path.join(work, 'standards');
+  fs.cpSync(REPO, standards, { recursive: true, filter: src => !/[\\/](node_modules|\.git)$/.test(src) });
+  git(standards, 'init', '-q');
+  git(standards, 'add', '--all');
+  git(standards, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'release');
+  git(standards, 'tag', `v${VERSION}`);
+
+  const app = tempRepo({
+    'package.json': JSON.stringify({ scripts: { 'transcript:clean': 'node .lbbexley/standards/scripts/clean-transcript.js' } }),
+    'docs/discovery/.gitignore': '*\n',
+    '.claude/settings.json': `${settingsPinnedTo(null)}\n`,
+    '.claude/settings.local.json': JSON.stringify({ extraKnownMarketplaces: { 'lbbexley-digital': { source: { source: 'github', repo: 'dbraben/lbbexley-digital-standards', ref: 'v0.0.1' } } } }),
+    '.github/workflows/quality.yml': workflowPinnedTo('v0.0.1', 'v0.0.1'),
+  });
+  run(SYNC, ['--target', app]);
+  const res = run(path.join(app, '.lbbexley/standards/scripts/update.js'), [`v${VERSION}`], {
+    cwd: app,
+    env: { LBBEXLEY_STANDARDS_SOURCE: standards, LBBEXLEY_SKIP_PLUGIN_UPDATE: '1' },
+  });
+  assert.equal(res.code, 0, res.stderr);
+  assert.equal(readJson(path.join(app, '.claude/settings.json')).extraKnownMarketplaces['lbbexley-digital'].source.ref, `v${VERSION}`);
+  assert.equal(fs.readFileSync(path.join(app, '.claude/settings.json'), 'utf8'), `${settingsPinnedTo(`v${VERSION}`)}\n`, 'only the ref changes');
+  assert.equal(readJson(path.join(app, '.claude/settings.local.json')).extraKnownMarketplaces['lbbexley-digital'].source.ref, `v${VERSION}`, 'a marketplace added for this computer only moves too');
+  assert.match(fs.readFileSync(path.join(app, '.github/workflows/quality.yml'), 'utf8'), new RegExp(`standards-check\\.yml@v${VERSION.replace(/\./g, '\\.')}\\n[\\s\\S]*standards-ref: v${VERSION.replace(/\./g, '\\.')}\\n`));
+  assert.match(res.stdout, new RegExp(`claude plugin marketplace add dbraben/lbbexley-digital-standards#v${VERSION.replace(/\./g, '\\.')} --scope local`), 'commands typed by hand leave settings.json alone');
+  assert.match(res.stdout, /claude plugin update lbbexley@lbbexley-digital/);
+  assert.equal(run(SYNC, ['--target', app, '--check']).code, 0, 'every pin now names the release');
+  fs.rmSync(work, { recursive: true, force: true });
+});

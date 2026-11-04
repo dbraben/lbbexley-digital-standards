@@ -10,7 +10,8 @@
 # events) and annotates problems on the pull request. Any finding, however
 # minor, fails it. It also warns during pre-election periods, and fails when
 # the synced Bexley files (skills, agents, path rules, hooks, scripts) differ
-# from the release. Set release: true on the pull request that takes a service
+# from the release, or when .claude/settings.json or the calling workflow names
+# a different release. Set release: true on the pull request that takes a service
 # live, to check the compliance documents are complete as well.
 name: Bexley standards check
 
@@ -113,4 +114,4 @@ jobs:
       - name: Bexley files match the standards release
         run: |
           node .lbbexley-standards/scripts/sync-app.js --target . --check \
-            || { echo "::error title=Bexley files out of date::The synced Bexley files (skills, agents, rules, hooks and .lbbexley/standards) differ from the standards release this check uses. Run npm run standards:update -- <version>, or put back the files that were edited by hand."; exit 1; }
+            || { echo "::error title=Bexley files out of date::The synced Bexley files (skills, agents, rules, hooks and .lbbexley/standards), or the release named in .claude/settings.json or .github/workflows/quality.yml, differ from the standards release this check uses. Run npm run standards:update -- <version>, or put back the files that were edited by hand."; exit 1; }

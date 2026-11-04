@@ -51,11 +51,13 @@ For each dev environment used in the pilot:
 
 **Claude Code.** Open VS Code's terminal in the folder and run `claude`. Use the terminal rather than the Claude Code panel: the panel doesn't take its starting mode from the project, so it doesn't start in plan mode. When Claude Code asks whether to trust the folder, say yes. It then offers to add the Bexley and Microsoft plugin marketplaces and turn on the Bexley plugin: accept. Check it's on: `/plugin` shows **lbbexley** enabled, and typing `/lbbexley` lists its commands. The plugin's reminder at the start of each session goes to Claude rather than to you, so to see it working, ask Claude which rules apply in this repository.
 
-If it doesn't offer, add them yourself:
+The plugin comes from the release your repository is on, the one in `.github/workflows/quality.yml`. To check, run `claude plugin list` in a second terminal: the version under `lbbexley@lbbexley-digital` matches it.
 
-```text
-/plugin marketplace add dbraben/lbbexley-digital-standards
-/plugin install lbbexley@lbbexley-digital
+If it doesn't offer, add the plugin yourself, for this computer only. Exit Claude Code, run these in the same terminal with your repository's release, then start Claude Code again:
+
+```bash
+claude plugin marketplace add dbraben/lbbexley-digital-standards#v0.5.0 --scope local
+claude plugin install lbbexley@lbbexley-digital --scope local
 ```
 
 **GitHub Copilot.** Nothing to install. Copilot's agent mode reads `AGENTS.md`, the Bexley skills in `.github/skills/`, the path rules in `.github/instructions/` and the agents in `.github/agents/`. The template turns on Copilot's hooks (`chat.useHooks` in `.vscode/settings.json`), which run the same standards check after each edit and the same end-of-run gate. Hooks are a preview feature in Copilot and may change, and there's no prompt guard for personal data, so take extra care: the pull request check is your safety net.
@@ -72,8 +74,14 @@ If it doesn't offer, add them yourself:
    setx DATAVERSE_DEV_URL "https://yourorg-dev.crm11.dynamics.com"
    ```
 
+   The template's `.mcp.json` starts the server through Windows' `cmd`. On a Mac or Linux, add your own for this computer only, then start Claude Code again. It takes the place of the template's, and nothing in the repository changes:
+
+   ```bash
+   claude mcp add --scope local dataverse -- npx -y @microsoft/dataverse mcp https://yourorg-dev.crm11.dynamics.com
+   ```
+
 6. Ask the Digital Team to import the Bexley publisher into your dev environment, then create your solution with it.
-7. Install the test tools: `npm install`, then `npm run test:a11y:install`. If your pages or screens need a sign-in, run `npm run test:a11y:login` and sign in with a test account. The saved sign-in (`.auth/a11y-state.json`) is a secret: it's never committed, and it expires, so run the command again when the tests say so.
+7. Install the test tools: `npm install`, then `npm run test:a11y:install`. If your pages or screens need a sign-in, run `npm run test:a11y:login` and sign in with a test account. The saved sign-in (`.auth/a11y-state.json`) is a secret: it's never committed, and it expires, so run the command again when the tests say so. A page or screen that needs a sign-in fails until there is one: it hasn't been tested, so it hasn't passed. Give pages their full address in `tests/accessibility/targets.json`, or, for a path, set `A11Y_BASE_URL` to the site's address before both commands.
 
 ## 6. Start from your requirements
 
@@ -107,15 +115,17 @@ The end-of-run reviewer also notes where the harness let you down: a problem the
 When the Digital Team releases a new version of the standards, update your repository as a change of its own, with nothing else in it:
 
 ```bash
-npm run standards:update -- v0.4.0
+npm run standards:update -- v0.5.0
 ```
 
-It updates the synced Bexley files and the version the Quality workflow checks against. Claude Code users also update the plugin. In a terminal, run these two commands, then start Claude Code again:
+It updates the synced Bexley files, the release the Quality workflow checks against and the release Claude Code installs the plugin from. If Claude Code is installed, it then moves the plugin to that release: start Claude Code again to load it. If it can't, it gives you two commands to run in a terminal in the repository. For `v0.5.0`:
 
 ```bash
-claude plugin marketplace update lbbexley-digital
+claude plugin marketplace add dbraben/lbbexley-digital-standards#v0.5.0 --scope local
 claude plugin update lbbexley@lbbexley-digital
 ```
+
+Colleagues who share the repository run the same two commands once the update is on GitHub and they've pulled it.
 
 ## Help
 
@@ -131,10 +141,11 @@ claude plugin update lbbexley@lbbexley-digital
 | The standards check flags something that's right | Add `lbbexley-ignore: <rule> <reason>` in a comment on that line or the line above. A suppression without a reason is itself a finding. Then open a "Standards check false alarm" issue so the rule can be fixed. |
 | The assistant keeps being sent back at the end of a run | That's the end-of-run check doing its job: the message says what's outstanding. Each review usually finds less. If it can't converge, it stops and lists the problems for you. |
 | The end-of-run check runs when you only asked a question | It only runs when files changed in the session. Files changed by a command count too, so check `git status`. |
-| The accessibility tests skip everything | Add your pages and screens to `tests/accessibility/targets.json`, and set `A11Y_BASE_URL` for Power Pages. |
-| The accessibility tests stop at a sign-in page | Run `npm run test:a11y:login` again: saved sign-ins expire. |
-| Dataverse MCP tools don't appear | Check `DATAVERSE_DEV_URL` is set, Node.js is installed, and you signed in when asked. Run `/mcp` to see the server's status. |
-| The pull request check says the Bexley files are out of date | Someone edited a synced file by hand, or the workflow and the files are on different releases. Run `npm run standards:update -- <version>`. |
+| The accessibility tests skip everything | Add your pages and screens to `tests/accessibility/targets.json`, with full addresses or, for paths, `A11Y_BASE_URL` set to the site's address. |
+| An accessibility test says it needs a saved sign-in, or that it opened a sign-in page | Nothing was tested, so it fails. Run `npm run test:a11y:login` again: saved sign-ins expire. On GitHub, refresh the `A11Y_STORAGE_STATE` secret, or, if GitHub can't sign in, set the `A11Y_SKIP_SIGNED_IN` variable to `1` and run those tests on your computer. |
+| Dataverse MCP tools don't appear | Check `DATAVERSE_DEV_URL` is set (on a Mac or Linux, the address in `claude mcp get dataverse`), Node.js is installed, and you signed in when asked. Run `/mcp` to see the server's status. |
+| The pull request check says the Bexley files are out of date | Someone edited a synced file by hand, or the workflow, `.claude/settings.json` and the files are on different releases. Run `npm run standards:update -- <version>`. |
+| `claude plugin list` shows a different version from `quality.yml` | Move the plugin to the repository's release with the two commands in "Keeping the standards up to date". |
 | `npm run transcript:clean` couldn't find who said what | Download the transcript from Teams again as a `.vtt` file, and clean that. |
 | `npm run transcript:clean` says the original is inside your repository | Move it out, for example to Downloads, and run it again. The assistant can read anything inside the repository. |
 | There's no **Use this template** button on the template | Sign in to GitHub. The button is at the top right, beside **Star**. |

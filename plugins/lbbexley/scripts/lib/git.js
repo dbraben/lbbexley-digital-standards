@@ -30,10 +30,23 @@ function changedFiles(root, base) {
   return [...out];
 }
 
+// Committed files that have been deleted and the deletion not yet committed,
+// staged or not, including a file changed and staged before it was deleted.
+function deletedFiles(root) {
+  const status = git(root, ['status', '--porcelain', '--untracked-files=no']);
+  if (status === null) return null;
+  const out = [];
+  for (const line of status.split(/\r?\n/)) {
+    const [index, tree] = [line[0], line[1]];
+    if ((index === 'D' || tree === 'D') && index !== 'A' && index !== 'R' && index !== 'C') out.push(line.slice(3).replace(/^"|"$/g, ''));
+  }
+  return out;
+}
+
 // A unified diff of tracked changes, for the end-of-run reviewer to read.
 function workingDiff(root, files, maxBytes = 60000) {
   const diff = git(root, ['diff', 'HEAD', '--', ...files]) || '';
   return diff.length > maxBytes ? diff.slice(0, maxBytes) + '\n[diff shortened]\n' : diff;
 }
 
-module.exports = { isRepo, changedFiles, workingDiff };
+module.exports = { isRepo, changedFiles, deletedFiles, workingDiff };

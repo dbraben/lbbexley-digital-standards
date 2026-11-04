@@ -102,7 +102,7 @@ As soon as an election affecting Bexley is called:
    { "name": "Example ward by-election", "start": "2027-03-01", "end": "2027-03-25" }
    ```
 
-2. Release a patch version, and ask developers to update the plugin (`claude plugin marketplace update lbbexley-digital`, then `claude plugin update lbbexley@lbbexley-digital`).
+2. Release a patch version, and ask teams to update to it (`npm run standards:update -- <version>`), which also moves Claude Code's plugin. Until a service updates, the reminder at the start of each session, in Claude Code and Copilot, doesn't know the new period.
 3. Remove the period after the result is declared, in the next release.
 
 The pull request check always reads this file from `main`, so it warns about a new period straight away, even in repositories pinned to an older release.
@@ -111,15 +111,15 @@ The pull request check always reads this file from `main`, so it warns about a n
 
 1. Update `version` in `.claude-plugin/marketplace.json`, `plugins/lbbexley/.claude-plugin/plugin.json` and `package.json` (the tests check they match).
 2. Add an entry to `CHANGELOG.md` (the tests check there is one). Say clearly if the release can fail builds that passed before.
-3. Merge, then tag: `git tag v0.4.0` and `git push origin v0.4.0`.
+3. Merge, then tag: `git tag v0.5.0` and `git push origin v0.5.0`.
 4. Update the app template in a pull request:
 
    ```bash
-   npm run standards:update -- v0.4.0
+   npm run standards:update -- v0.5.0
    ```
 
-   This syncs the Bexley files from the tag and updates both pins in `.github/workflows/quality.yml`. To try a release on a copy of the template before you push the tag, point it at your local clone: `LBBEXLEY_STANDARDS_SOURCE=../lbbexley-digital-standards npm run standards:update -- v0.4.0` (in PowerShell, set `$env:LBBEXLEY_STANDARDS_SOURCE` first).
+   This syncs the Bexley files from the tag, updates both pins in `.github/workflows/quality.yml` and the `ref` Claude Code installs the plugin from in `.claude/settings.json`. The sync check, which the check on GitHub runs, fails if any of them names another release. To try a release on a copy of the template before you push the tag, point it at a local clone that has the tag: `LBBEXLEY_STANDARDS_SOURCE=../lbbexley-digital-standards npm run standards:update -- v0.5.0` (in PowerShell, set `$env:LBBEXLEY_STANDARDS_SOURCE` first). `LBBEXLEY_SKIP_PLUGIN_UPDATE=1` stops it moving your own Claude Code plugin.
 
-5. Tell teams. Each app repository runs the same command, as a change of its own: the assistant can run it for them. Until it does, its check on GitHub keeps using the release it's pinned to.
+5. Tell teams. Each app repository runs the same command, as a change of its own: the assistant can run it for them. Until it does, its check on GitHub and its Claude Code plugin stay on the release it's pinned to.
 
-Developers using Claude Code get the new plugin version when they run `claude plugin marketplace update lbbexley-digital` and then `claude plugin update lbbexley@lbbexley-digital`, or automatically if they've turned on auto-update for the marketplace in `/plugin`. Auto-update is off by default for marketplaces that aren't Anthropic's.
+The marketplace is pinned to a release, so `claude plugin marketplace update lbbexley-digital`, or auto-update, doesn't move anyone to a newer release. `npm run standards:update` moves the plugin when it updates the repository. Anyone else on the repository runs `claude plugin marketplace add dbraben/lbbexley-digital-standards#<release> --scope local`, then `claude plugin update lbbexley@lbbexley-digital`, once they've pulled the update.

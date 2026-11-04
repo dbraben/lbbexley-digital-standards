@@ -36,7 +36,7 @@ const report = obj => `END-OF-RUN REVIEW: done\n\n\`\`\`json\n${JSON.stringify(o
 // Does what the assistant does when the stop gate asks it to save the work:
 // commits the files the request lists.
 const commitListed = (dir, reason) => {
-  const files = reason.split('\n').filter(line => line.startsWith('- ')).map(line => line.slice(2));
+  const files = reason.split('\n').filter(line => line.startsWith('- ')).map(line => line.slice(2).replace(/ \(deleted\)$/, ''));
   spawnSync('git', ['add', '--', ...files], { cwd: dir });
   spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit', '-qm', 'Save the work'], { cwd: dir });
   return files;
@@ -102,6 +102,42 @@ test('file check: Copilot gets the findings as context, from its own input shape
   const res = run(hook('check-file.js'), [], { input: { cwd: dir, sessionId: 's1', toolName: 'edit', toolArgs: JSON.stringify({ path: 'src/Home.pa.yaml' }) }, env: COPILOT });
   assert.equal(res.code, 0);
   assert.match(JSON.parse(res.stdout).additionalContext, /canvas-hardcoded-colour/);
+});
+
+test('deletions are found whether or not they are staged', () => {
+  const { deletedFiles } = require('../plugins/lbbexley/scripts/lib/git');
+  const dir = gitRepo({ 'docs/a.md': 'a\n', 'docs/b.md': 'b\n', 'docs/c.md': 'c\n', 'docs/d.md': 'd\n' });
+  fs.rmSync(path.join(dir, 'docs/a.md'));
+  spawnSync('git', ['rm', '-q', 'docs/b.md'], { cwd: dir });
+  write(dir, 'docs/c.md', 'changed\n');
+  spawnSync('git', ['add', 'docs/c.md'], { cwd: dir });
+  fs.rmSync(path.join(dir, 'docs/c.md'));
+  write(dir, 'docs/new.md', 'new\n');
+  spawnSync('git', ['add', 'docs/new.md'], { cwd: dir });
+  fs.rmSync(path.join(dir, 'docs/new.md'));
+  assert.deepEqual(deletedFiles(dir).sort(), ['docs/a.md', 'docs/b.md', 'docs/c.md'], 'a file that was never committed is not a deletion');
+});
+
+test('Copilot hooks answer in both the Copilot CLI shape and the hookSpecificOutput shape VS Code documents', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
+  const copilot = (script, input) => JSON.parse(run(hook(script), [], { input: { cwd: dir, sessionId: 's1', ...input }, env: COPILOT }).stdout);
+
+  const start = copilot('session-start.js', {});
+  assert.equal(start.hookSpecificOutput.hookEventName, 'SessionStart');
+  assert.equal(start.hookSpecificOutput.additionalContext, start.additionalContext);
+
+  const denied = copilot('dataverse-guard.js', { toolName: 'dataverse/delete_record', toolArgs: '{}' });
+  assert.equal(denied.permissionDecision, 'deny');
+  assert.deepEqual(denied.hookSpecificOutput, { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: denied.permissionDecisionReason });
+
+  write(dir, 'src/Home.pa.yaml', BAD_CANVAS);
+  const after = copilot('check-file.js', { toolName: 'edit', toolArgs: JSON.stringify({ path: 'src/Home.pa.yaml' }) });
+  assert.equal(after.hookSpecificOutput.hookEventName, 'PostToolUse');
+  assert.equal(after.hookSpecificOutput.additionalContext, after.additionalContext);
+
+  const held = copilot('stop-gate.js', { hookEventName: 'agentStop' });
+  assert.equal(held.decision, 'block');
+  assert.deepEqual(held.hookSpecificOutput, { hookEventName: 'Stop', decision: 'block', reason: held.reason });
 });
 
 test('file check: respects .lbbexleyignore, synced files and non-Bexley projects', () => {
@@ -398,8 +434,43 @@ test('stop gate in Copilot: asks for the check once per set of changes', () => {
   run(hook('check-file.js'), [], { input: { cwd: dir, sessionId: 's1', toolName: 'edit', toolArgs: { path: 'src/Home.pa.yaml' } }, env: COPILOT });
   const first = JSON.parse(run(hook('stop-gate.js'), [], { input: { cwd: dir, sessionId: 's1' }, env: COPILOT }).stdout);
   assert.match(first.reason, /lbbexley-check agent/);
-  assert.equal(run(hook('stop-gate.js'), [], { input: { cwd: dir, sessionId: 's1' }, env: COPILOT }).stdout, '');
-  assert.equal(run(hook('stop-gate.js'), [], { input: { cwd: dir, sessionId: 's1' }, env: COPILOT }).stdout, '', 'lbbexley-check offers the commit, not the gate');
+  // Copilot doesn't say whether lbbexley-check ran, so the review isn't recorded as done.
+  const second = JSON.parse(run(hook('stop-gate.js'), [], { input: { cwd: dir, sessionId: 's1' }, env: COPILOT }).stdout);
+  assert.equal(second.decision, undefined, 'asked once per set of changes');
+  assert.match(second.systemMessage, /isn't confirmed[\s\S]*select Check my work/);
+  assert.equal(state(dir).reviewed['src/Home.pa.yaml'], undefined, 'not marked as reviewed without a report');
+  assert.equal(run(hook('stop-gate.js'), [], { input: { cwd: dir, sessionId: 's1' }, env: COPILOT }).stdout, '', 'said once; lbbexley-check offers the commit, not the gate');
+
+  write(dir, 'src/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', 'BexleyHighlight'));
+  run(hook('check-file.js'), [], { input: { cwd: dir, sessionId: 's1', toolName: 'edit', toolArgs: { path: 'src/Home.pa.yaml' } }, env: COPILOT });
+  assert.match(JSON.parse(run(hook('stop-gate.js'), [], { input: { cwd: dir, sessionId: 's1' }, env: COPILOT }).stdout).reason, /lbbexley-check agent/, 'a later edit is asked about again');
+});
+
+test('stop gate: a file this run deleted is reviewed, and the deletion committed with the rest', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS, 'tests/agent-test-set.md': '# Agent test set\n\n- Can I speak to a person?\n' });
+  sessionStarted(dir);
+  fs.rmSync(path.join(dir, 'tests/agent-test-set.md'));
+
+  const ask = JSON.parse(stop(dir).stdout);
+  assert.match(ask.reason, /end-of-run-reviewer[\s\S]*\n- tests\/agent-test-set\.md \(deleted\)\n/);
+  const request = fs.readFileSync(path.join(dir, '.lbbexley', 'state', 'review-request.md'), 'utf8');
+  assert.match(request, /^- tests\/agent-test-set\.md \(deleted\)$/m);
+  assert.match(request, /^-- Can I speak to a person\?$/m, 'the review sees what was deleted');
+  reviewerDone(dir, report({ work: [], harness: [] }));
+
+  const saveIt = JSON.parse(stop(dir).stdout);
+  assert.match(saveIt.reason, /Now save the work[\s\S]*\n- tests\/agent-test-set\.md \(deleted\)$/);
+  commitListed(dir, saveIt.reason);
+  const left = spawnSync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: dir, encoding: 'utf8' }).stdout.split('\n').filter(l => l.trim());
+  assert.deepEqual(left, [], 'the deletion is committed');
+  assert.match(JSON.parse(stop(dir, { stop_hook_active: true }).stdout).systemMessage, /end-of-run check passed/);
+});
+
+test('stop gate: a deletion made before the session started is left alone', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS, 'docs/old-notes.md': '# Old notes\n' });
+  fs.rmSync(path.join(dir, 'docs/old-notes.md'));
+  sessionStarted(dir);
+  assert.equal(stop(dir).stdout, '', 'not reviewed, and not offered for a commit');
 });
 
 test('LBBEXLEY_END_OF_RUN=0 keeps the standards gate but skips the review', () => {

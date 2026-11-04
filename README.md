@@ -98,7 +98,7 @@ flowchart LR
     service -- "refers to, at a pinned release" --> standards["lbbexley-digital-standards<br/>this repository"]
 ```
 
-Your repository refers to these standards in four places: the Claude Code plugin settings, the pull request check pinned to a release, copies of the standards for Copilot and the local checks, and the `standards:update` command. Never edit those copies by hand: the pull request check fails if you do, and the next update replaces them.
+Your repository refers to these standards in four places: the Claude Code plugin settings and the pull request check, both pinned to the same release, copies of the standards at that release for Copilot and the local checks, and the `standards:update` command, which moves them all to a new release. Never edit those copies by hand: the pull request check fails if you do, and the next update replaces them.
 
 ## The rules that always apply
 

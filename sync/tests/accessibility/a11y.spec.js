@@ -6,6 +6,14 @@
 // Canvas apps are checked inside their app frame, so Microsoft's player around
 // them doesn't count against the app.
 //
+// A target that isn't tested doesn't pass: one that needs a saved sign-in fails
+// until there is one, and fails if it opens a sign-in page because the saved
+// sign-in has expired. A11Y_SKIP_SIGNED_IN=1 reports the targets that need a
+// sign-in as skipped instead, for a workflow that can't sign in, with those
+// tests run on a developer's computer. With A11Y_BASE_URL set there's a site to
+// test, so an empty targets.json fails too. How many targets were run goes in
+// the report and, on GitHub, the run's summary.
+//
 // Synced from the standards repository (sync/tests/accessibility/): don't edit
 // the copy in an app repository. The pages and screens come from the app
 // repository's tests/accessibility/targets.json.
@@ -13,23 +21,39 @@
 const fs = require('fs');
 const { test, expect } = require('@playwright/test');
 const AxeBuilder = require('@axe-core/playwright').default;
-const { STATE, CANVAS_FRAME, WCAG_TAGS, loadTargets, absoluteUrl } = require('./shared');
+const { STATE, CANVAS_FRAME, WCAG_TAGS, SIGN_IN_PAGE, loadTargets, absoluteUrl } = require('./shared');
 
 const signedIn = fs.existsSync(STATE);
+const skipSignedIn = /^(1|true|yes)$/i.test(process.env.A11Y_SKIP_SIGNED_IN || '');
 const all = loadTargets();
 const targets = all.filter(t => !t.auth || signedIn);
-const waiting = all.length - targets.length;
+const needSignIn = all.filter(t => t.auth && !signedIn);
+
+// A target that needs a sign-in has landed on a sign-in page: the tests would
+// check that page instead of the service.
+function stopIfSignedOut(page, target) {
+  if (target.auth && SIGN_IN_PAGE.test(page.url())) {
+    throw new Error('Not tested, so not passed: this target opened a sign-in page, so the saved sign-in has expired or belongs to an account that can\'t see it. Run npm run test:a11y:login again with the test account, then run the tests again.');
+  }
+}
 
 async function open(page, target) {
   await page.goto(absoluteUrl(target.url), { waitUntil: 'domcontentloaded' });
-  if (target.type === 'canvas') {
-    const frame = page.frameLocator(target.frame || CANVAS_FRAME);
-    if (target.waitFor) await expect(frame.getByText(target.waitFor).first()).toBeVisible({ timeout: 60 * 1000 });
-  } else if (target.waitFor) {
-    await expect(page.getByText(target.waitFor).first()).toBeVisible({ timeout: 60 * 1000 });
-  } else {
-    await page.waitForLoadState('networkidle').catch(() => {});
+  stopIfSignedOut(page, target);
+  try {
+    if (target.type === 'canvas') {
+      const frame = page.frameLocator(target.frame || CANVAS_FRAME);
+      if (target.waitFor) await expect(frame.getByText(target.waitFor).first()).toBeVisible({ timeout: 60 * 1000 });
+    } else if (target.waitFor) {
+      await expect(page.getByText(target.waitFor).first()).toBeVisible({ timeout: 60 * 1000 });
+    } else {
+      await page.waitForLoadState('networkidle').catch(() => {});
+    }
+  } catch (err) {
+    stopIfSignedOut(page, target);
+    throw err;
   }
+  stopIfSignedOut(page, target);
 }
 
 function describe(violation) {
@@ -39,10 +63,28 @@ function describe(violation) {
 
 test.describe('Accessibility, WCAG 2.2 AA', () => {
   test('there is something to test', () => {
-    if (waiting) test.info().annotations.push({ type: 'warning', description: `${waiting} target(s) need a saved sign-in: run npm run test:a11y:login` });
-    test.skip(all.length === 0, 'No targets yet: add each page and screen to tests/accessibility/targets.json as you build it.');
-    expect(targets.length, 'targets that can run (sign in with npm run test:a11y:login for the rest)').toBeGreaterThan(0);
+    const coverage = text => {
+      test.info().annotations.push({ type: 'coverage', description: text });
+      if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `**Accessibility tests:** ${text}\n\n`);
+    };
+    if (all.length === 0) {
+      if (process.env.A11Y_BASE_URL) {
+        coverage('none run, because tests/accessibility/targets.json lists no pages or screens.');
+        throw new Error('A11Y_BASE_URL is set, so there\'s a site to test, but tests/accessibility/targets.json lists no pages or screens. Add each one in the same change that builds it.');
+      }
+      coverage('none run: there are no pages or screens to test yet.');
+      test.skip(true, 'No targets yet: add each page and screen to tests/accessibility/targets.json as you build it.');
+    }
+    const untested = needSignIn.length ? `; ${needSignIn.length} need a saved sign-in${skipSignedIn ? ' and are skipped (A11Y_SKIP_SIGNED_IN)' : ' and fail until there is one'}` : '';
+    coverage(`${targets.length} of ${all.length} target(s) run here${untested}.`);
   });
+
+  for (const target of needSignIn) {
+    test(`${target.name}: needs a saved sign-in`, () => {
+      test.skip(skipSignedIn, 'A11Y_SKIP_SIGNED_IN is set: the targets that need a sign-in are tested somewhere else, such as on a developer\'s computer.');
+      throw new Error('Not tested, so not passed: this target needs a saved sign-in. Run npm run test:a11y:login with a test account, then run the tests again.');
+    });
+  }
 
   for (const target of targets) {
     const skip = new Set(target.skip || []);
