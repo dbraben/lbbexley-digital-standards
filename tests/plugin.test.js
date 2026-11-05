@@ -289,7 +289,9 @@ test('sync: leaves the repository\'s own files alone, removes stale ones and det
 const VERSION = readJson(path.join(PLUGIN, '.claude-plugin', 'plugin.json')).version;
 const settingsPinnedTo = ref => JSON.stringify({
   extraKnownMarketplaces: { 'lbbexley-digital': { source: { source: 'github', repo: 'dbraben/lbbexley-digital-standards', ...(ref ? { ref } : {}) } } },
-  permissions: { allow: ['Bash(git add *)', 'Bash(git commit *)', 'Bash(pac solution sync*)', 'Bash(git push *)'] },
+  permissions: { allow: ['Bash(git add *)', 'Bash(git commit *)', 'Bash(pac solution sync*)', 'Bash(pac solution add-solution-component *)', 'Bash(git push *)'] },
+  env: { POWER_PLATFORM_SKILLS_TELEMETRY_POWER_AUTOMATE_OPTOUT: '1', POWER_PLATFORM_SKILLS_TELEMETRY_POWER_PAGES_OPTOUT: '1', POWER_PLATFORM_SKILLS_TELEMETRY_MODEL_APPS_OPTOUT: '1' },
+  attribution: { commit: '', pr: '', sessionUrl: false },
 }, null, 2);
 const workflowPinnedTo = (uses, ref) => [
   'jobs:',
@@ -391,10 +393,38 @@ test('sync: says how to move a repository made from an older template to buildin
   const current = tempRepo({
     'package.json': JSON.stringify({ scripts: { 'transcript:clean': 'node .lbbexley/standards/scripts/clean-transcript.js' } }),
     'docs/discovery/.gitignore': '*\n',
-    '.claude/settings.json': JSON.stringify({ extraKnownMarketplaces: { 'lbbexley-digital': { source: { source: 'github', repo: 'dbraben/lbbexley-digital-standards', ref: `v${VERSION}` } } }, permissions: { allow: ['Bash(git commit *)', 'Bash(pac solution sync*)', 'Bash(git push *)'] } }),
+    '.claude/settings.json': JSON.stringify({
+      extraKnownMarketplaces: { 'lbbexley-digital': { source: { source: 'github', repo: 'dbraben/lbbexley-digital-standards', ref: `v${VERSION}` } } },
+      permissions: { allow: ['Bash(git commit *)', 'Bash(pac solution sync*)', 'Bash(pac solution add-solution-component *)', 'Bash(git push *)'] },
+      env: { POWER_PLATFORM_SKILLS_TELEMETRY_POWER_AUTOMATE_OPTOUT: '1', POWER_PLATFORM_SKILLS_TELEMETRY_POWER_PAGES_OPTOUT: '1', POWER_PLATFORM_SKILLS_TELEMETRY_MODEL_APPS_OPTOUT: '1' },
+      attribution: { commit: '', pr: '', sessionUrl: false },
+    }),
+    '.gitignore': '*.vtt\n*.roles.json\nsrc/canvas/**/*.md\n',
+    'AGENTS.md': '# Service\n\nBexley standards apply (lbbexley plugin). Run pac solution add-solution-component, then pac solution sync, after each change.\n',
+    '.vscode/settings.json': JSON.stringify({ 'chat.tools.terminal.autoApprove': { '/^git push$/': true, '/^pac solution (sync|clone|add-solution-component)\\b/': true } }),
+    '.github/copilot-instructions.md': 'Build in the dev environment, then run pac solution sync.\n',
+    '.github/dependabot.yml': 'updates:\n  - package-ecosystem: github-actions\n    ignore:\n      - dependency-name: dbraben/lbbexley-digital-standards\n',
+  });
+  assert.doesNotMatch(run(SYNC, ['--target', current]).stdout, /To finish moving/);
+
+  // A repository on 0.6.0: the template's own files it needs to copy.
+  const sixty = tempRepo({
+    'package.json': JSON.stringify({ scripts: { 'transcript:clean': 'node .lbbexley/standards/scripts/clean-transcript.js' } }),
+    'docs/discovery/.gitignore': '*\n',
+    '.claude/settings.json': JSON.stringify({ extraKnownMarketplaces: { 'lbbexley-digital': { source: { source: 'github', repo: 'dbraben/lbbexley-digital-standards', ref: `v${VERSION}` } } }, permissions: { allow: ['Bash(git commit *)', 'Bash(pac solution sync*)', 'Bash(git push *)'] }, attribution: { commit: '', pr: '' } }),
     '.gitignore': '*.vtt\n*.roles.json\nsrc/canvas/**/*.md\n',
     'AGENTS.md': '# Service\n\nBexley standards apply (lbbexley plugin). Run pac solution sync after each change.\n',
     '.vscode/settings.json': JSON.stringify({ 'chat.tools.terminal.autoApprove': { '/^git push$/': true } }),
+    '.github/copilot-instructions.md': 'Follow AGENTS.md. Hooks run the standards check after each edit.\n',
+    '.github/dependabot.yml': 'updates:\n  - package-ecosystem: github-actions\n    directory: /\n',
   });
-  assert.doesNotMatch(run(SYNC, ['--target', current]).stdout, /To finish moving/);
+  const notes = run(SYNC, ['--target', sixty]).stdout;
+  assert.match(notes, /add "Bash\(pac solution add-solution-component \*\)" and the PowerShell version to permissions\.allow/);
+  assert.match(notes, /the env block that turns off the usage telemetry/);
+  assert.match(notes, /"sessionUrl": false under attribution/);
+  assert.match(notes, /Replace \.github\/copilot-instructions\.md with the app template's/);
+  assert.match(notes, /In \.github\/dependabot\.yml, add the ignore for dbraben\/lbbexley-digital-standards/);
+  assert.match(notes, /In AGENTS\.md, replace the "How work runs" section with the app template's: new flows and tables are added to the solution/);
+  assert.match(notes, /In \.vscode\/settings\.json, change the pac solution rule/);
+  assert.doesNotMatch(notes, /let the assistant build in the dev environment/, 'the 0.6.0 note doesn\'t fire for a 0.6.0 repository');
 });

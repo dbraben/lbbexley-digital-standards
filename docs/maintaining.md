@@ -111,14 +111,14 @@ The pull request check always reads this file from `main`, so it warns about a n
 
 1. Update `version` in `.claude-plugin/marketplace.json`, `plugins/lbbexley/.claude-plugin/plugin.json` and `package.json` (the tests check they match).
 2. Add an entry to `CHANGELOG.md` (the tests check there is one). Say clearly if the release can fail builds that passed before.
-3. Merge, then tag: `git tag v0.6.0` and `git push origin v0.6.0`.
+3. Merge, then tag: `git tag v0.6.1` and `git push origin v0.6.1`.
 4. Update the app template in a pull request:
 
    ```bash
-   npm run standards:update -- v0.6.0
+   npm run standards:update -- v0.6.1
    ```
 
-   This syncs the Bexley files from the tag, updates both pins in `.github/workflows/quality.yml` and the `ref` Claude Code installs the plugin from in `.claude/settings.json`. The sync check, which the check on GitHub runs, fails if any of them names another release. To try a release on a copy of the template before you push the tag, point it at a local clone that has the tag: `LBBEXLEY_STANDARDS_SOURCE=../lbbexley-digital-standards npm run standards:update -- v0.6.0` (in PowerShell, set `$env:LBBEXLEY_STANDARDS_SOURCE` first). `LBBEXLEY_SKIP_PLUGIN_UPDATE=1` stops it moving your own Claude Code plugin.
+   This syncs the Bexley files from the tag, updates both pins in `.github/workflows/quality.yml` and the `ref` Claude Code installs the plugin from in `.claude/settings.json`. The sync check, which the check on GitHub runs, fails if any of them names another release. To try a release on a copy of the template before you push the tag, point it at a local clone that has the tag: `LBBEXLEY_STANDARDS_SOURCE=../lbbexley-digital-standards npm run standards:update -- v0.6.1` (in PowerShell, set `$env:LBBEXLEY_STANDARDS_SOURCE` first). `LBBEXLEY_SKIP_PLUGIN_UPDATE=1` stops it moving your own Claude Code plugin.
 
 5. Tell teams. Each app repository runs the same command, as a change of its own: the assistant can run it for them. Until it does, its check on GitHub and its Claude Code plugin stay on the release it's pinned to. The update never changes the repository's own files, such as `AGENTS.md` or the permissions in `.claude/settings.json`: when a release needs them changed, it lists the changes after "To finish moving to this release of the standards", and the CHANGELOG says how. Copy them from the app template.
 

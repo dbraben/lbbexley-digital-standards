@@ -2,6 +2,40 @@
 
 All notable changes to the Bexley digital standards. Versions follow `major.minor.patch`: a new rule that can fail existing builds is a minor version at least.
 
+## 0.6.1 – 5 November 2026
+
+Fixes from an end-to-end review of 0.6.0. There are no new rules, but two things change what a run does: flows and tables are added to the solution before the sync, and the end-of-run check now confirms the work was committed and pushed. A repository on 0.6.0 needs the changes under "Updating from 0.6.0".
+
+Building in the dev environment:
+
+- **Flows and tables go into the solution.** Microsoft's Power Automate tools create flows outside the service's solution, and the Dataverse MCP server does the same for tables, so `pac solution sync` never saw them and the repository didn't get them. Now the assistant adds each new one with `pac solution add-solution-component` before the sync (the flow's `workflowId` from `get_flow_context`, or the table's logical name), the end-of-run check says so when a flow or table changed, and the sync skill checks. The template allows the command, the pac guard covers it, and the new-app skill tells the person to set the service's solution as their preferred solution in Power Apps. The dataverse skill says what to do when a table arrives with another publisher's prefix.
+- **Committed and pushed, or you're told.** After the end-of-run check asks for the commit, it checks the next time the assistant stops: if the work still isn't committed it asks once more, then tells the person what's unsaved instead of saying the check passed. The same for the push: a branch that's ahead of its remote, or has never been pushed, gets one request to push (with `git push -u origin <branch>` for a new branch), then the person is told.
+- **The reviewer knows whether `src/solution` was synced.** The review request says whether `pac solution sync` ran in the session, so synced files are reviewed as the latest version and changes without a sync are reported as hand edits.
+- The end-of-run check names the solution's project folder, `src/solution/<solution>/`, and gives the clone command with the solution name from `AGENTS.md`.
+
+Guardrails:
+
+- **A pac command that names another environment is blocked.** `pac solution sync --environment …` and `pac pages upload -env …` were let through when pac itself was signed in to the dev environment. Now the named environment must be the dev one; an environment ID or name, which can't be checked, asks the person.
+- **Where pac is connected is read carefully.** The guard uses `pac env who --json`, then the "Org URL" line, and never takes a sign-in address for the environment. Its message says `pac env select` rather than the deprecated `pac org select`.
+- **`smoke_test` is blocked.** It creates, runs and then deletes a flow.
+- **Tool names from other hosts.** The Power Automate guard and the change tracking match the operation at the end of the tool name, so a host that joins the parts with single underscores (`mcp_flowagent_delete_flow`) is covered as well as `mcp__…__delete_flow` and `flowagent/delete_flow`.
+
+Template:
+
+- `.claude/settings.json` turns off the usage telemetry Microsoft's Power Automate, Power Pages and Model Apps plugins send to Microsoft by default (`POWER_PLATFORM_SKILLS_TELEMETRY_<PLUGIN>_OPTOUT`), sets `attribution.sessionUrl` to `false` so a commit made from a Remote Control or cloud session carries no session link, and allows `pac solution add-solution-component`. `.vscode/settings.json` allows it too.
+- `.github/copilot-instructions.md` describes the 0.6 way of working: it still described 0.4.
+- `.github/dependabot.yml` ignores the standards repository, so Dependabot no longer offers to move the check on GitHub to a release the rest of the repository isn't on, which the sync check would fail.
+- The dev container installs the Azure CLI, which flows need.
+- `AGENTS.md`, `src/README.md` and `CLAUDE.md` have the add-to-solution step and the solution folder.
+
+Docs and workshop: GOVERNANCE.md records the telemetry Microsoft's plugins send and the decision it needs. The onboarding guide has the preferred solution, the telemetry opt-out for Copilot users and a troubleshooting row for a flow or table missing after a sync. Workshop exercise 01 no longer refers to an `ask` list, the instructions README has the steps in the right order, and exercise 09 has the preferred solution and the add-to-solution step.
+
+Updating from 0.6.0:
+
+1. Run `npm run standards:update -- v0.6.1`.
+2. Make the changes it lists, copying from the app template: `.claude/settings.json` (the add-solution-component rule, the `env` block and `attribution.sessionUrl`), `.vscode/settings.json`, `.github/copilot-instructions.md`, `.github/dependabot.yml` and the "How work runs" section of `AGENTS.md`.
+3. Each developer sets the service's solution as their preferred solution in Power Apps. Any flow or table built with 0.6.0 that isn't in the solution: add it with `pac solution add-solution-component`, then run `/lbbexley:sync`.
+
 ## 0.6.0 – 5 November 2026
 
 One way of working: everything is built in the dev environment, never as files on their own, and the repository keeps the guidelines and the latest version. The assistant changes the dev environment without asking, brings the latest version into the repository, has it reviewed, then commits it and pushes it to GitHub. This changes how every service works. There are no new rules in the standards check, but a run that changed the dev environment can't finish until the latest version is in the repository, Dataverse changes no longer ask, and the work is pushed without asking. A repository updated from 0.5.0 needs the changes under "Updating from 0.5.0".

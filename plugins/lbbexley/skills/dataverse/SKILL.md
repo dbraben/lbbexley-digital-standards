@@ -11,6 +11,7 @@ description: Bexley standards for Dataverse and model-driven apps - publisher an
 - One solution per service, with a clear unique name such as `lbbexleyParkingPermits`.
 - **Environments.** Build in dev. Test and production receive managed solutions through the pipeline, with approval. Never customise test or production directly.
 - Build in the dev environment. After every change, the solution is synced into `src/solution` (pac solution sync), reviewed, committed and pushed. Never edit the synced files by hand.
+- **Put each new table in the solution yourself.** The Dataverse MCP server creates tables outside the service's solution, so `pac solution sync` won't see them until they're added: `pac solution add-solution-component --solutionUniqueName <solution in AGENTS.md> --component <table logical name> --componentType 1 --AddRequiredComponents`. Then sync. Check the synced table's schema name starts with `lbbexley_`: a table that got another prefix was created with the wrong publisher. Deletes aren't allowed through the assistant, so tell the person, who removes it in Power Apps and creates it again with the service's solution set as their preferred solution.
 
 ## Tables and columns
 

@@ -22,7 +22,7 @@ If the changes are documents only (nothing under `src/`), check them for content
 - **Publicity and AI.** Content clearly from the London Borough of Bexley. Nothing political. Agents that say they're automated and offer a person.
 - **Conventions.** Control, variable, flow and action names. Environment variables instead of hard-coded values.
 - **Tests and documents.** New screens or pages added to `tests/accessibility/targets.json`. New agent topics added to `tests/agent-test-set.md`. Compliance documents updated if the service changed.
-- **The dev environment and the repository match.** Files under `src/solution` come from the dev environment: report hand edits there. A canvas app's source in `src/canvas/` changed in this run should have been compiled into the app.
+- **The dev environment and the repository match.** Files under `src/solution` come from the dev environment. The request says whether `pac solution sync` ran in this session: if it did, review the synced files as the latest version of the solution; if it didn't, report each changed file there as a hand edit. A canvas app's source in `src/canvas/` changed in this run should have been compiled into the app.
 
 Only report something as a problem if you can point to the file and say what's wrong. If you're unsure, leave it out.
 

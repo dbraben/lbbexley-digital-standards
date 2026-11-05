@@ -6,8 +6,11 @@
 // canvas authoring tools (compile_canvas), its Power Automate tools (creating,
 // editing, publishing, turning off or restoring a flow), the Dataverse MCP
 // server (creating or changing tables or columns: records aren't part of the
-// solution) and pac pages upload. The latest version comes in with
-// pac solution sync or clone. Quiet outside Bexley app repositories.
+// solution), pac pages upload and pac solution add-solution-component. The
+// latest version comes in with pac solution sync or clone, and the state keeps
+// when that last happened, so the review knows whether changes under
+// src/solution came from the dev environment. Quiet outside Bexley app
+// repositories.
 
 const path = require('path');
 const { readStdin, normalise } = require('./lib/hook-io');
@@ -50,6 +53,7 @@ function failed(raw) {
     env.pending = false;
     env.changes = [];
     env.syncAsks = 0;
+    env.lastSyncAt = Date.now();
   }
   state.environment = env;
   save(root, input.sessionId, state);

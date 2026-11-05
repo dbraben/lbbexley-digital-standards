@@ -49,10 +49,25 @@ function hasRemote(root) {
   return Boolean(remotes && remotes.trim());
 }
 
+// The current branch, or null when detached or outside a repository.
+function currentBranch(root) {
+  const out = git(root, ['symbolic-ref', '--quiet', '--short', 'HEAD']);
+  return out ? out.trim() : null;
+}
+
+// How many commits the current branch has that its upstream doesn't: 0 when
+// they match, null when the branch has no upstream yet (never pushed).
+function commitsAhead(root) {
+  const out = git(root, ['rev-list', '--count', '@{upstream}..HEAD']);
+  if (out === null) return null;
+  const n = Number(out.trim());
+  return Number.isFinite(n) ? n : null;
+}
+
 // A unified diff of tracked changes, for the end-of-run reviewer to read.
 function workingDiff(root, files, maxBytes = 60000) {
   const diff = git(root, ['diff', 'HEAD', '--', ...files]) || '';
   return diff.length > maxBytes ? diff.slice(0, maxBytes) + '\n[diff shortened]\n' : diff;
 }
 
-module.exports = { isRepo, changedFiles, deletedFiles, hasRemote, workingDiff };
+module.exports = { isRepo, changedFiles, deletedFiles, hasRemote, currentBranch, commitsAhead, workingDiff };

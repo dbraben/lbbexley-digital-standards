@@ -41,7 +41,8 @@ Headings, labels, hints, buttons, error messages and confirmations, written now 
 
 ## Where it's built
 The resource in the dev environment that changes (the app, flow, table or site, in the solution named
-in AGENTS.md) and the tool that changes it. The latest version comes into src/ through the sync.
+in AGENTS.md) and the tool that changes it. A new flow or table is added to the solution with
+pac solution add-solution-component before the sync. The latest version comes into src/ through the sync.
 
 ## Tests
 - Pages or screens to add to tests/accessibility/targets.json

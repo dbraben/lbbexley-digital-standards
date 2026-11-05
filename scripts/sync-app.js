@@ -282,6 +282,15 @@ function migrationNotes(target) {
   if (settings && !(allow.includes('Bash(git push *)') && allow.some(rule => rule.startsWith('Bash(pac solution sync')))) {
     notes.push('In .claude/settings.json, let the assistant build in the dev environment, bring in the latest version, commit and push without asking, as the app template does: add the Dataverse, canvas and Power Automate tools, pac solution sync and clone, pac pages download and upload, and git push to permissions.allow, take git push and pac pages upload out of permissions.ask, and add the deny rules for force pushes.');
   }
+  if (settings) {
+    const env = settings.env || {};
+    const attribution = settings.attribution || {};
+    const missing = [];
+    if (!allow.some(rule => rule.startsWith('Bash(pac solution add-solution-component'))) missing.push('"Bash(pac solution add-solution-component *)" and the PowerShell version to permissions.allow, so new flows and tables can be added to the solution before the sync');
+    if (!['POWER_AUTOMATE', 'POWER_PAGES', 'MODEL_APPS'].every(name => String(env[`POWER_PLATFORM_SKILLS_TELEMETRY_${name}_OPTOUT`] || '') === '1')) missing.push('the env block that turns off the usage telemetry Microsoft\'s Power Automate, Power Pages and Model Apps plugins send by default (POWER_PLATFORM_SKILLS_TELEMETRY_<PLUGIN>_OPTOUT: "1")');
+    if (attribution.sessionUrl !== false) missing.push('"sessionUrl": false under attribution, so a commit made from a Remote Control or cloud session carries no session link');
+    if (missing.length) notes.push(`In .claude/settings.json, as in the app template, add ${missing.join('; ')}.`);
+  }
   try {
     const ignore = fs.readFileSync(path.join(target, '.gitignore'), 'utf8');
     if (app && !/^\*\.vtt$/m.test(ignore)) notes.push('In .gitignore, add *.vtt and *.roles.json, so an original meeting transcript put in the repository by mistake is never committed.');
@@ -292,12 +301,26 @@ function migrationNotes(target) {
   try {
     const vscode = fs.readFileSync(path.join(target, '.vscode', 'settings.json'), 'utf8');
     if (app && !/chat\.tools\.terminal\.autoApprove/.test(vscode)) notes.push('In .vscode/settings.json, add the app template\'s chat.tools.terminal.autoApprove rules, so Copilot can sync the solution, commit and push without asking, but not force-push or delete.');
+    else if (app && !/add-solution-component/.test(vscode)) notes.push('In .vscode/settings.json, change the pac solution rule under chat.tools.terminal.autoApprove to "/^pac solution (sync|clone|add-solution-component)\\\\b/", as in the app template, so Copilot can add flows and tables to the solution without asking.');
   } catch {
     // No VS Code settings: nothing to say.
   }
   try {
+    const instructions = fs.readFileSync(path.join(target, '.github', 'copilot-instructions.md'), 'utf8');
+    if (app && !/pac solution sync/.test(instructions)) notes.push('Replace .github/copilot-instructions.md with the app template\'s, so Copilot is told to build in the dev environment, sync the solution, and commit and push.');
+  } catch {
+    // No Copilot instructions: nothing to say.
+  }
+  try {
+    const dependabot = fs.readFileSync(path.join(target, '.github', 'dependabot.yml'), 'utf8');
+    if (app && /github-actions/.test(dependabot) && !/lbbexley-digital-standards/.test(dependabot)) notes.push('In .github/dependabot.yml, add the ignore for dbraben/lbbexley-digital-standards under the github-actions entry, as in the app template, so Dependabot doesn\'t offer to move the check on GitHub to a release the rest of the repository isn\'t on.');
+  } catch {
+    // No Dependabot: nothing to say.
+  }
+  try {
     const agents = fs.readFileSync(path.join(target, 'AGENTS.md'), 'utf8');
-    if (app && !/pac solution sync/.test(agents)) notes.push('In AGENTS.md, replace the "How work runs" section, and the "Always" and "Never" lists, with the app template\'s: the work is built in the dev environment, the latest version is synced into the repository, then committed and pushed, and nothing is deleted or force-pushed.');
+    if (app && !/pac solution sync/.test(agents)) notes.push('In AGENTS.md, replace the "How work runs" section, and the "Always" and "Never" lists, with the app template\'s: the work is built in the dev environment, new flows and tables are added to the solution, the latest version is synced into the repository, then committed and pushed, and nothing is deleted or force-pushed.');
+    else if (app && !/add-solution-component/.test(agents)) notes.push('In AGENTS.md, replace the "How work runs" section with the app template\'s: new flows and tables are added to the solution with pac solution add-solution-component before the sync.');
   } catch {
     // No AGENTS.md: nothing to say.
   }

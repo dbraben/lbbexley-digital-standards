@@ -5,7 +5,9 @@
 //  0. When the run changed the dev environment (a canvas app, a flow,
 //     Dataverse or a Power Pages site), the latest version comes into the
 //     repository first: pac solution sync into src/solution, with the canvas
-//     app's source in src/canvas/. environment-change.js notes the changes.
+//     app's source in src/canvas/. New flows and tables are added to the
+//     solution first, because Microsoft's tools create them outside it.
+//     environment-change.js notes the changes and the syncs.
 //  1. Standards check on every file changed in this run. Any finding, however
 //     minor, keeps the assistant working until it's fixed.
 //  2. Problems the end-of-run reviewer reported must be fixed: the file has
@@ -14,10 +16,12 @@
 //     the lbbexley:end-of-run-reviewer agent (Haiku) in Claude Code, or the
 //     lbbexley-check agent in Copilot.
 //  4. When everything passes, the assistant commits what the run changed and
-//     pushes it to GitHub, so the person never has to. It's asked once for each
-//     request from the person, and only after the review, which reads the
-//     uncommitted changes. In Copilot, lbbexley-check offers the commit and push
-//     as a handover instead.
+//     pushes it to GitHub, so the person never has to. It's asked after the
+//     review, which reads the uncommitted changes, and the next time it stops
+//     the gate checks the commit happened and the branch reached its remote:
+//     one more request each if not, then the person is told what's still
+//     unsaved. In Copilot, lbbexley-check offers the commit and push as a
+//     handover instead.
 //
 // Deleting a file is a change too: this run's deletions are reviewed and
 // committed with the rest. Copilot doesn't tell the gate whether lbbexley-check
@@ -47,10 +51,13 @@ const path = require('path');
 const { readStdin, normalise, harness, blockStop, allowStop } = require('./lib/hook-io');
 const { loadStandards, isBexleyProject } = require('./lib/config');
 const { checkPath, isCheckable, isIgnoredPath, loadIgnoreFile, ignoreRulesFor } = require('./lib/checks');
-const { changedFiles, deletedFiles, hasRemote, workingDiff } = require('./lib/git');
+const { changedFiles, deletedFiles, hasRemote, currentBranch, commitsAhead, workingDiff } = require('./lib/git');
+const { solutionName } = require('./lib/environment');
 const { stateDir, load, save, hashFile, unreviewed } = require('./lib/state');
 
 const MAX_SAME_HOLDS = 3;
+// How many times the commit is asked for before the person is told it hasn't happened.
+const MAX_SAVE_ASKS = 2;
 const MAX_REVIEW_ROUNDS = Math.max(1, Number(process.env.LBBEXLEY_REVIEW_ROUNDS) || 5);
 // A review that started but never reported is given up on after this long.
 const REVIEW_TIMEOUT_MS = 15 * 60 * 1000;
@@ -80,7 +87,7 @@ function reviewRunning(raw, state) {
 
 const listed = (files, deleted) => files.map(f => `- ${f}${deleted.has(f) ? ' (deleted)' : ''}`);
 
-function writeReviewRequest(root, files, deleted, sessionId) {
+function writeReviewRequest(root, files, deleted, sessionId, solutionNote) {
   const diff = workingDiff(root, files);
   const text = [
     '# End-of-run review request',
@@ -89,6 +96,7 @@ function writeReviewRequest(root, files, deleted, sessionId) {
     '',
     ...listed(files, deleted),
     '',
+    ...(solutionNote ? [solutionNote, ''] : []),
     'New files appear in full when you read them. A deleted file appears in the diff: check the deletion was meant, and that it doesn\'t remove a test, a requirement or a check without a written reason. Changes to tracked files:',
     '',
     '```diff',
@@ -155,9 +163,13 @@ function writeReviewRequest(root, files, deleted, sessionId) {
       allowStop(`Bexley end-of-run check: this run changed ${what} in the dev environment, but the latest version hasn't come into the repository, so it isn't reviewed, committed or pushed yet. Ask the assistant to sync the solution into src/solution once pac is connected to the dev environment.`);
       return;
     }
+    const solution = solutionName(root) || '<the solution named in AGENTS.md>';
     const lines = [`Before finishing, bring the latest version from the dev environment into the repository: this run changed ${what} there.`];
+    if (env.pending && (env.changes || []).some(c => c === 'a flow' || c === 'Dataverse')) {
+      lines.push(`- Microsoft's tools create flows and tables outside the solution. Before syncing, add each new flow or table to the solution: pac solution add-solution-component --solutionUniqueName ${solution} --component <the flow's workflowId from get_flow_context, or the table's logical name> --componentType 29 (a flow) or 1 (a table, with --AddRequiredComponents). Skip this for flows and tables that are already in it.`);
+    }
     if (env.pending) {
-      lines.push('- Run pac solution sync in src/solution. If there\'s no src/solution yet, clone the solution named in AGENTS.md into it first with pac solution clone.');
+      lines.push(`- Run pac solution sync in the solution's project folder under src/solution (the folder with the .cdsproj, src/solution/${solution}/). If there's no src/solution yet, clone it first: pac solution clone --name ${solution} --outputDirectory src/solution.`);
     }
     if (outside.length) {
       lines.push(`- The canvas app was compiled from ${outside.join(', ')}. Move its .pa.yaml files into src/canvas/<app name>/, so the repository has them, and use that folder with Microsoft's canvas tools from now on.`);
@@ -205,17 +217,55 @@ function writeReviewRequest(root, files, deleted, sessionId) {
       .filter(rel => !NEVER_COMMIT.test(rel.replace(/\\/g, '/')))
       .sort();
     const askedFor = personAt === undefined ? `session ${startedAt}` : personAt;
-    if (reviewOn && !copilot && !capped && toCommit.length && state.commitAskedFor !== askedFor) {
-      state.commitAskedFor = askedFor;
-      save(root, input.sessionId, state);
-      const saveIt = hasRemote(root)
-        ? `commit the ${toCommit.length} file(s) this run changed, on the current branch, with a short message saying what changed, then push it to GitHub with git push, and tell the person it's committed and pushed. If the push fails, tell them why. Don't make a branch or open a pull request unless they asked:`
-        : `commit the ${toCommit.length} file(s) this run changed, on the current branch, with a short message saying what changed, and tell the person it's committed. There's no remote to push it to. Don't make a branch or open a pull request unless they asked:`;
-      blockStop([
-        `Bexley end-of-run check passed. Now save the work, as AGENTS.md says: ${saveIt}`,
-        ...listed(toCommit, deleted),
-      ].join('\n'));
-      return;
+    if (reviewOn && !copilot && !capped) {
+      const remote = hasRemote(root);
+      const branch = currentBranch(root);
+      // null: the branch has no upstream yet, so a plain git push would fail.
+      const ahead = remote ? commitsAhead(root) : 0;
+      const pushCommand = ahead === null && branch ? `git push -u origin ${branch}` : 'git push';
+      const saves = state.saveAsks && state.saveAsks.for === askedFor ? state.saveAsks : { for: askedFor, count: 0, pushes: 0 };
+      if (toCommit.length) {
+        if (saves.count < MAX_SAVE_ASKS) {
+          saves.count += 1;
+          state.saveAsks = saves;
+          save(root, input.sessionId, state);
+          const again = saves.count > 1 ? 'The work still isn\'t committed. ' : '';
+          const saveIt = remote
+            ? `commit the ${toCommit.length} file(s) this run changed, on the current branch, with a short message saying what changed, then push it to GitHub with ${pushCommand}, and tell the person it's committed and pushed. If the commit or the push fails, tell them why. Don't make a branch or open a pull request unless they asked:`
+            : `commit the ${toCommit.length} file(s) this run changed, on the current branch, with a short message saying what changed, and tell the person it's committed. There's no remote to push it to. Don't make a branch or open a pull request unless they asked:`;
+          blockStop([
+            `${again}Bexley end-of-run check passed. Now save the work, as AGENTS.md says: ${saveIt}`,
+            ...listed(toCommit, deleted),
+          ].join('\n'));
+          return;
+        }
+        if (!saves.told) {
+          saves.told = true;
+          state.saveAsks = saves;
+          if (state.lastReview) state.lastReview.announced = true;
+          save(root, input.sessionId, state);
+          allowStop(`Bexley end-of-run check: the standards check and the review passed, but the work hasn't been committed: ${toCommit.join(', ')}. Ask the assistant to commit and push it, or do it yourself.`);
+          return;
+        }
+      } else if (saves.count > 0 && remote && (ahead === null || ahead > 0)) {
+        // Committed, but not on the remote yet.
+        const where = ahead === null ? 'this branch has never been pushed' : `this branch has ${ahead} commit(s) that aren't on the remote`;
+        if (saves.pushes < 1) {
+          saves.pushes += 1;
+          state.saveAsks = saves;
+          save(root, input.sessionId, state);
+          blockStop(`Bexley end-of-run check: the work is committed, but it hasn't reached GitHub: ${where}. Push it with ${pushCommand}, and tell the person it's pushed. If the push fails, tell them why.`);
+          return;
+        }
+        if (!saves.pushTold) {
+          saves.pushTold = true;
+          state.saveAsks = saves;
+          if (state.lastReview) state.lastReview.announced = true;
+          save(root, input.sessionId, state);
+          allowStop(`Bexley end-of-run check: the work is committed but not pushed to GitHub: ${where}. Ask the assistant to push it, or run ${pushCommand} yourself.`);
+          return;
+        }
+      }
     }
 
     const summary = state.lastReview && !state.lastReview.announced && state.lastReview.readable !== false ? state.lastReview : null;
@@ -300,7 +350,14 @@ function writeReviewRequest(root, files, deleted, sessionId) {
       "Fix them. If you're sure one is wrong, explain why to the person instead of changing the file.",
     ].join('\n');
   } else {
-    writeReviewRequest(root, needReview, deleted, input.sessionId);
+    let solutionNote = '';
+    if (needReview.some(rel => rel.startsWith('src/solution/'))) {
+      const lastSync = Number((state.environment || {}).lastSyncAt) || 0;
+      solutionNote = lastSync && lastSync >= startedAt - 2000
+        ? `Files under src/solution were brought in with pac solution sync in this session (last at ${new Date(lastSync).toISOString()}): their changes come from the dev environment, so review them as the latest version of the solution, not as hand edits.`
+        : 'No pac solution sync ran in this session, so changes under src/solution may be hand edits. Hand edits there aren\'t allowed: report each changed file under src/solution as a problem, with the fix "change it in the dev environment and run pac solution sync".';
+    }
+    writeReviewRequest(root, needReview, deleted, input.sessionId, solutionNote);
     state.pendingReview = { fp, files: needReviewHashes };
     state.reviewRequested = fp;
     state.reviewRounds = (state.reviewRounds || 0) + 1;

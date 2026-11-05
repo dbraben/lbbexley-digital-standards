@@ -7,18 +7,21 @@
 //     the repository's own remotes. An ordinary push goes ahead, so the
 //     assistant can push the work without asking.
 //   - pac commands that read from or write to an environment (pac pages upload
-//     or download, pac solution sync or clone): checks pac is connected to the
-//     dev environment named in AGENTS.md, so nothing is uploaded to test or
-//     production, and the repository only ever holds the dev version. If
-//     AGENTS.md doesn't name a dev environment yet, or pac can't say where
-//     it's connected, the person is asked.
+//     or download, pac solution sync, clone or add-solution-component): checks
+//     the command goes to the dev environment named in AGENTS.md, so nothing is
+//     uploaded to test or production, and the repository only ever holds the
+//     dev version. A command that names another environment itself, with
+//     --environment or -env, is blocked. Otherwise the environment pac is
+//     signed in to is checked (pac env who --json, or the text output on older
+//     versions). If AGENTS.md doesn't name a dev environment yet, or pac can't
+//     say where it's connected, the person is asked.
 // Other commands, and tools that aren't commands, are let through without comment.
 
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { readStdin, normalise, toolDecision } = require('./lib/hook-io');
 const { isBexleyProject } = require('./lib/config');
-const { usesPacEnvironment, devEnvironmentUrl, host } = require('./lib/environment');
+const { usesPacEnvironment, pacEnvironmentArgument, devEnvironmentUrl, host } = require('./lib/environment');
 
 const SEP = Symbol('separator');
 
@@ -123,13 +126,45 @@ function remotes(cwd) {
   return `${res.stdout || ''}`.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
 }
 
-// The environment pac is connected to: `pac env who`, or `pac org who` on older versions.
+const SIGN_IN = /login\.(microsoftonline\.com|windows\.net|microsoftonline\.us)/i;
+
+// An environment's address in what pac printed: the JSON field that names the
+// organisation's URL, the "Org URL" line, or failing those the first https
+// address that isn't a sign-in authority.
+function environmentIn(output) {
+  const text = `${output || ''}`;
+  try {
+    const json = JSON.parse(text);
+    const walk = value => {
+      if (!value || typeof value !== 'object') return null;
+      for (const [key, v] of Object.entries(value)) {
+        if (typeof v === 'string' && /url/i.test(key) && /^https:\/\//i.test(v) && !SIGN_IN.test(v)) return v;
+      }
+      for (const v of Object.values(value)) {
+        const found = walk(v);
+        if (found) return found;
+      }
+      return null;
+    };
+    const fromJson = walk(json);
+    if (fromJson) return fromJson;
+  } catch {
+    // Not JSON: read the text.
+  }
+  const line = text.match(/^\s*(?:Org|Organi[sz]ation|Environment)\s*URL\s*:?\s*(https:\/\/[^\s'"]+)/im);
+  if (line) return line[1];
+  const urls = text.match(/https:\/\/[^\s'"]+/gi) || [];
+  return urls.find(u => !SIGN_IN.test(u)) || null;
+}
+
+// The environment pac is connected to: `pac env who --json`, then the text
+// forms, with `pac org who` for older versions.
 function currentEnvironment(cwd) {
-  for (const args of [['env', 'who'], ['org', 'who']]) {
+  for (const args of [['env', 'who', '--json'], ['env', 'who'], ['org', 'who']]) {
     const res = spawnSync('pac', args, { cwd, encoding: 'utf8', windowsHide: true, shell: process.platform === 'win32', timeout: 30 * 1000 });
     if (res.error || res.status !== 0) continue;
-    const url = `${res.stdout || ''}`.match(/https:\/\/[^\s'"]+/i);
-    if (url) return url[0];
+    const url = environmentIn(res.stdout);
+    if (url) return url;
   }
   return null;
 }
@@ -151,11 +186,24 @@ function checkPushes(command, root) {
   return false;
 }
 
-async function checkPac(root) {
+async function checkPac(command, root) {
   const dev = devEnvironmentUrl(root);
   if (!dev) {
     toolDecision('ask', 'Bexley guardrails: AGENTS.md doesn\'t name a dev environment yet, so the check can\'t confirm where this pac command goes. Continue only if pac is connected to the dev environment.');
     return;
+  }
+  // The command names an environment itself: it must be the dev one. An
+  // environment ID or name can't be checked here, so the person is asked.
+  const named = pacEnvironmentArgument(command);
+  if (named) {
+    if (!/^https?:\/\//i.test(named)) {
+      toolDecision('ask', `Bexley guardrails: this pac command names the environment "${named}", which the check can't match against the dev environment in AGENTS.md (${dev}). Continue only if it's the same environment, or leave --environment out so pac uses the one it's signed in to.`);
+      return;
+    }
+    if (host(named) !== host(dev)) {
+      toolDecision('deny', `Blocked by the Bexley guardrails: this pac command names ${named}, not the dev environment in AGENTS.md (${dev}). Leave --environment out, or name the dev environment.`);
+      return;
+    }
   }
   const current = currentEnvironment(root);
   if (!current) {
@@ -163,7 +211,7 @@ async function checkPac(root) {
     return;
   }
   if (host(current) !== host(dev)) {
-    toolDecision('deny', `Blocked by the Bexley guardrails: pac is connected to ${current}, not the dev environment in AGENTS.md (${dev}). Switch to it first with pac org select --environment ${dev} (or pac auth create --environment ${dev} if you haven't signed in to it), then run this again.`);
+    toolDecision('deny', `Blocked by the Bexley guardrails: pac is connected to ${current}, not the dev environment in AGENTS.md (${dev}). Switch to it first with pac env select --environment ${dev} (or pac auth create --environment ${dev} if you haven't signed in to it), then run this again.`);
   }
 }
 
@@ -177,7 +225,7 @@ async function checkPac(root) {
   const root = input.cwd;
   if (!isBexleyProject(root)) return;
   if (git && checkPushes(command, root)) return;
-  if (pac) await checkPac(root);
+  if (pac) await checkPac(command, root);
 })().catch(() => {
   process.exitCode = 0;
 });

@@ -373,7 +373,7 @@ test('stop gate: without a list of background tasks, a review that started and h
   assert.match(JSON.parse(stop(dir, { stop_hook_active: true }).stdout).systemMessage, /end-of-run check passed/);
 });
 
-test('stop gate: once everything passes, asks once for each request for the work to be committed', () => {
+test('stop gate: once everything passes, asks for the work to be committed, and tells the person if it isn\'t', () => {
   const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
   promptSent(dir, 'user');
   write(dir, 'src/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', 'BexleyPanel'));
@@ -388,11 +388,14 @@ test('stop gate: once everything passes, asks once for each request for the work
   assert.match(saveIt.reason, /There's no remote to push it to\. Don't make a branch or open a pull request unless they asked:\n- src\/Home\.pa\.yaml$/);
   assert.doesNotMatch(saveIt.reason, /\.vtt|\.lbbexley\/state/, 'transcripts and harness state are never offered');
 
-  // The person had said not to commit: the assistant says so, and isn't asked again for this request.
-  const declined = JSON.parse(stop(dir, { stop_hook_active: true }).stdout || '{}');
-  assert.equal(declined.decision, undefined);
-  assert.match(declined.systemMessage, /end-of-run check passed/);
-  assert.equal(stop(dir, { stop_hook_active: true }).stdout, '');
+  // The assistant stopped without committing: it's asked once more, then the person is told.
+  const second = JSON.parse(stop(dir, { stop_hook_active: true }).stdout);
+  assert.equal(second.decision, 'block');
+  assert.match(second.reason, /^The work still isn't committed\. Bexley end-of-run check passed\. Now save the work/);
+  const told = JSON.parse(stop(dir, { stop_hook_active: true }).stdout || '{}');
+  assert.equal(told.decision, undefined);
+  assert.match(told.systemMessage, /the work hasn't been committed: src\/Home\.pa\.yaml\. Ask the assistant to commit and push it, or do it yourself/);
+  assert.equal(stop(dir, { stop_hook_active: true }).stdout, '', 'told once');
 
   // Their next request is saved too.
   promptSent(dir, 'user');
@@ -540,7 +543,8 @@ test('stop gate: a change in the dev environment is synced into the repository b
   const sync = JSON.parse(stop(dir).stdout);
   assert.equal(sync.decision, 'block');
   assert.match(sync.reason, /bring the latest version from the dev environment into the repository: this run changed the canvas app, a flow there/);
-  assert.match(sync.reason, /pac solution sync in src\/solution/);
+  assert.match(sync.reason, /Run pac solution sync in the solution's project folder under src\/solution/);
+  assert.match(sync.reason, /add each new flow or table to the solution: pac solution add-solution-component/, 'a flow changed, so the solution membership hint is given');
   assert.doesNotMatch(sync.reason, /Move its \.pa\.yaml files/, 'the canvas app was built in src/canvas');
 
   // A sync that failed doesn't count; one that worked does, and the review follows.
@@ -562,6 +566,9 @@ test('stop gate: changes in the dev environment come from each kind of tool, in 
   assert.ok(pending({ toolName: 'flowagent/publish_flow', toolArgs: '{}', sessionId: 's1' }, COPILOT));
   assert.ok(pending({ toolName: 'canvas-authoring/compile_canvas', toolArgs: '{}', sessionId: 's1' }, COPILOT));
   assert.ok(pending({ tool_name: 'PowerShell', tool_input: { command: 'pac pages upload --path src/pages --modelVersion 2' } }));
+  assert.ok(pending({ toolName: 'mcp_canvas-authoring_compile_canvas', toolArgs: '{}', sessionId: 's1' }, COPILOT), 'tool names joined with single underscores');
+  assert.ok(pending({ toolName: 'mcp_flowagent_publish_flow', toolArgs: '{}', sessionId: 's1' }, COPILOT));
+  assert.ok(pending({ tool_name: 'Bash', tool_input: { command: 'pac solution add-solution-component --solutionUniqueName lbbexleyRooms --component 1a2b --componentType 29' } }), 'adding a flow to the solution changes it');
   assert.ok(!pending({ tool_name: 'mcp__dataverse__read_query', tool_input: {} }), 'reading changes nothing');
   assert.ok(!pending({ tool_name: 'mcp__dataverse__create_record', tool_input: {} }), 'made-up records aren\'t in the solution, so there\'s nothing to sync');
   assert.ok(!pending({ toolName: 'dataverse/update_record', toolArgs: '{}', sessionId: 's1' }, COPILOT));
@@ -594,7 +601,32 @@ test('stop gate: with a remote, the work is pushed after it is committed', () =>
   stop(dir);
   reviewerDone(dir, report({ work: [], harness: [] }));
   const saveIt = JSON.parse(stop(dir).stdout);
-  assert.match(saveIt.reason, /then push it to GitHub with git push, and tell the person it's committed and pushed\. If the push fails, tell them why\./);
+  assert.match(saveIt.reason, /then push it to GitHub with git push -u origin \w+, and tell the person it's committed and pushed\. If the commit or the push fails, tell them why\./, 'a branch that was never pushed needs -u');
+  commitListed(dir, saveIt.reason);
+
+  // Committed but not pushed: asked once to push, then the person is told.
+  const pushIt = JSON.parse(stop(dir, { stop_hook_active: true }).stdout);
+  assert.equal(pushIt.decision, 'block');
+  assert.match(pushIt.reason, /the work is committed, but it hasn't reached GitHub: this branch has never been pushed\. Push it with git push -u origin \w+/);
+  const told = JSON.parse(stop(dir, { stop_hook_active: true }).stdout);
+  assert.equal(told.decision, undefined);
+  assert.match(told.systemMessage, /committed but not pushed to GitHub/);
+  assert.equal(stop(dir, { stop_hook_active: true }).stdout, '', 'told once');
+
+  // The next request: pushed properly, so the run ends with the summary.
+  spawnSync('git', ['push', '-q', '-u', 'origin', 'HEAD'], { cwd: dir });
+  promptSent(dir, 'user');
+  write(dir, 'src/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', 'BexleyHighlight'));
+  saved(dir, 'src/Home.pa.yaml');
+  stop(dir);
+  reviewerDone(dir, report({ work: [], harness: [] }));
+  const next = JSON.parse(stop(dir).stdout);
+  assert.match(next.reason, /then push it to GitHub with git push, and tell the person/, 'with an upstream, a plain git push');
+  commitListed(dir, next.reason);
+  spawnSync('git', ['push', '-q'], { cwd: dir });
+  const done = JSON.parse(stop(dir, { stop_hook_active: true }).stdout);
+  assert.match(done.systemMessage, /end-of-run check passed/);
+  assert.doesNotMatch(done.systemMessage, /not pushed/);
 });
 
 test('Power Automate guard: deletes and copies are blocked, runs and environment switches ask, building goes ahead', () => {
@@ -609,7 +641,11 @@ test('Power Automate guard: deletes and copies are blocked, runs and environment
   for (const op of ['create_flow', 'edit_flow', 'update_flow', 'publish_flow', 'disable_flow', 'get_flow', 'list_flows']) {
     assert.equal(flow(`mcp__plugin_power-automate_flowagent__${op}`), 'none', op);
   }
+  assert.equal(flow('mcp__plugin_power-automate_flowagent__smoke_test'), 'deny', 'smoke_test creates, runs and deletes a flow');
   assert.equal(flow('flowagent/delete_flow', COPILOT), 'deny', 'Copilot tool names');
+  assert.equal(flow('mcp_flowagent_delete_flow', COPILOT), 'deny', 'tool names joined with single underscores');
+  assert.equal(flow('mcp_flowagent_run_flow', COPILOT), 'ask');
+  assert.equal(flow('mcp_flowagent_get_flow', COPILOT), 'none');
   assert.equal(flow('edit', COPILOT), 'none', 'Copilot: other tools are left alone');
 });
 
@@ -638,6 +674,31 @@ test('command guard: pac commands that use an environment only run against the d
   const unset = tempRepo({ 'AGENTS.md': agents('{{DEV_ENVIRONMENT_URL}}') });
   fakePac('https://contoso-dev.crm11.dynamics.com/');
   assert.equal(pac('pac pages upload --path src/pages', unset).decision, 'ask', 'no dev environment named yet');
+
+  // A command that names another environment itself is blocked, whatever pac is signed in to.
+  const named = pac('pac solution sync --environment https://contoso.crm11.dynamics.com');
+  assert.equal(named.decision, 'deny');
+  assert.match(named.reason, /names https:\/\/contoso\.crm11\.dynamics\.com, not the dev environment/);
+  assert.equal(pac('pac pages upload --path src/pages -env https://contoso.crm11.dynamics.com').decision, 'deny');
+  assert.equal(pac('pac solution sync --environment=https://contoso-dev.crm11.dynamics.com').decision, 'none', 'naming the dev environment is fine');
+  assert.equal(pac('pac solution sync --environment 00000000-0000-0000-0000-000000000000').decision, 'ask', 'an ID can\'t be checked');
+  assert.equal(pac('pac solution add-solution-component --solutionUniqueName lbbexleyRooms --component 1a2b --componentType 29').decision, 'none', 'adding to the solution uses the environment too');
+  fakePac('https://contoso.crm11.dynamics.com/');
+  assert.equal(pac('pac solution add-solution-component --solutionUniqueName lbbexleyRooms --component 1a2b --componentType 29').decision, 'deny');
+
+  // What pac prints is read carefully: JSON first, then the Org URL line, never a sign-in address.
+  const prints = text => {
+    fs.writeFileSync(path.join(bin, 'pac'), `#!/bin/sh\ncat <<'OUT'\n${text}\nOUT\n`);
+    fs.chmodSync(path.join(bin, 'pac'), 0o755);
+  };
+  prints('{"OrgId":"1","OrgUrl":"https://contoso-dev.crm11.dynamics.com/","Authority":"https://login.microsoftonline.com/x/"}');
+  assert.equal(pac('pac solution sync').decision, 'none', 'JSON output');
+  prints('Connected as someone@example.com\nAuthority: https://login.microsoftonline.com/common/\nOrg URL: https://contoso-dev.crm11.dynamics.com/\n');
+  assert.equal(pac('pac solution sync').decision, 'none', 'the sign-in address before the Org URL is skipped');
+  prints('{"OrgUrl":"https://contoso.crm11.dynamics.com/"}');
+  const wrongJson = pac('pac solution sync');
+  assert.equal(wrongJson.decision, 'deny');
+  assert.match(wrongJson.reason, /pac env select --environment https:\/\/contoso-dev\.crm11\.dynamics\.com/);
 });
 
 test('file check: the planning notes Microsoft\'s canvas tools write next to an app aren\'t checked or reviewed', () => {
@@ -682,4 +743,20 @@ test('command guard: an ordinary push goes ahead, one that could overwrite or de
   assert.equal(decideWith('command-guard.js', { cwd: dir, toolName: 'run_in_terminal', toolArgs: JSON.stringify({ command: 'git push --force' }) }, COPILOT).decision, 'deny', 'Copilot');
   const other = fs.mkdtempSync(path.join(require('os').tmpdir(), 'lbbexley-other-'));
   assert.equal(decideWith('command-guard.js', { cwd: other, tool_name: 'Bash', tool_input: { command: 'git push --force' } }).decision, 'none', 'only in Bexley projects');
+});
+
+test('stop gate: the review request says whether src/solution came from a sync', () => {
+  const dir = gitRepo({ 'src/solution/lbbexleyRooms/src/Other/Solution.xml': '<ImportExportXml>\n  <SolutionManifest>\n    <UniqueName>lbbexleyRooms</UniqueName>\n    <Version>1.0.0.0</Version>\n  </SolutionManifest>\n</ImportExportXml>\n' });
+  sessionStarted(dir);
+  // A hand edit: no sync ran.
+  write(dir, 'src/solution/lbbexleyRooms/src/Other/Solution.xml', fs.readFileSync(path.join(dir, 'src/solution/lbbexleyRooms/src/Other/Solution.xml'), 'utf8').replace('1.0.0.0', '1.0.0.1'));
+  assert.match(JSON.parse(stop(dir).stdout).reason, /end-of-run-reviewer/);
+  const request = () => fs.readFileSync(path.join(dir, '.lbbexley/state/review-request.md'), 'utf8');
+  assert.match(request(), /No pac solution sync ran in this session, so changes under src\/solution may be hand edits/);
+
+  // The same change after a sync is the latest version.
+  afterTool(dir, { tool_name: 'Bash', tool_input: { command: 'cd src/solution/lbbexleyRooms && pac solution sync' }, tool_response: { stdout: 'Synced', stderr: '' } });
+  write(dir, 'src/solution/lbbexleyRooms/src/Other/Solution.xml', fs.readFileSync(path.join(dir, 'src/solution/lbbexleyRooms/src/Other/Solution.xml'), 'utf8').replace('1.0.0.1', '1.0.0.2'));
+  assert.match(JSON.parse(stop(dir).stdout).reason, /end-of-run-reviewer/);
+  assert.match(request(), /brought in with pac solution sync in this session/);
 });

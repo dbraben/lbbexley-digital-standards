@@ -57,11 +57,11 @@ The plugin comes from the release your repository is on, the one in `.github/wor
 If it doesn't offer, add the plugin yourself, for this computer only. Exit Claude Code, run these in the same terminal with your repository's release, then start Claude Code again:
 
 ```bash
-claude plugin marketplace add dbraben/lbbexley-digital-standards#v0.6.0 --scope local
+claude plugin marketplace add dbraben/lbbexley-digital-standards#v0.6.1 --scope local
 claude plugin install lbbexley@lbbexley-digital --scope local
 ```
 
-**GitHub Copilot.** Nothing to install. Copilot's agent mode reads `AGENTS.md`, the Bexley skills in `.github/skills/`, the path rules in `.github/instructions/` and the agents in `.github/agents/`. The template turns on Copilot's hooks (`chat.useHooks` in `.vscode/settings.json`), which run the same standards check after each edit and the same end-of-run gate. Hooks are a preview feature in Copilot and may change, and there's no prompt guard for personal data, so take extra care: the pull request check is your safety net.
+**GitHub Copilot.** Nothing to install. Microsoft's Power Automate, Power Pages and Model Apps plugins send usage telemetry to Microsoft by default (tenant and environment IDs, and your Entra object ID); the template turns it off for Claude Code sessions, and for VS Code set the same variables for your account: `POWER_PLATFORM_SKILLS_TELEMETRY_POWER_AUTOMATE_OPTOUT`, `..._POWER_PAGES_OPTOUT` and `..._MODEL_APPS_OPTOUT`, each to `1` (`setx` in PowerShell, then restart VS Code). Copilot's agent mode reads `AGENTS.md`, the Bexley skills in `.github/skills/`, the path rules in `.github/instructions/` and the agents in `.github/agents/`. The template turns on Copilot's hooks (`chat.useHooks` in `.vscode/settings.json`), which run the same standards check after each edit and the same end-of-run gate. Hooks are a preview feature in Copilot and may change, and there's no prompt guard for personal data, so take extra care: the pull request check is your safety net.
 
 ## 5. Set up your app
 
@@ -81,7 +81,7 @@ claude plugin install lbbexley@lbbexley-digital --scope local
    claude mcp add --scope local dataverse -- npx -y @microsoft/dataverse mcp https://yourorg-dev.crm11.dynamics.com
    ```
 
-6. Ask the Digital Team to import the Bexley publisher into your dev environment, then create your solution with it.
+6. Ask the Digital Team to import the Bexley publisher into your dev environment, then create your solution with it. In Power Apps, select the solution and choose **Set preferred solution**, so anything you create in the maker portal lands in it. Microsoft's tools create flows and tables outside it: the assistant adds each one to the solution (`pac solution add-solution-component`) before it syncs.
 7. Install the test tools: `npm install`, then `npm run test:a11y:install`. If your pages or screens need a sign-in, run `npm run test:a11y:login` and sign in with a test account. The saved sign-in (`.auth/a11y-state.json`) is a secret: it's never committed, and it expires, so run the command again when the tests say so. A page or screen that needs a sign-in fails until there is one: it hasn't been tested, so it hasn't passed. Give pages their full address in `tests/accessibility/targets.json`, or, for a path, set `A11Y_BASE_URL` to the site's address before both commands.
 
 ## 6. Start from your requirements
@@ -116,13 +116,13 @@ The end-of-run reviewer also notes where the harness let you down: a problem the
 When the Digital Team releases a new version of the standards, update your repository as a change of its own, with nothing else in it:
 
 ```bash
-npm run standards:update -- v0.6.0
+npm run standards:update -- v0.6.1
 ```
 
-It updates the synced Bexley files, the release the Quality workflow checks against and the release Claude Code installs the plugin from. If Claude Code is installed, it then moves the plugin to that release: start Claude Code again to load it. If it can't, it gives you two commands to run in a terminal in the repository. For `v0.6.0`:
+It updates the synced Bexley files, the release the Quality workflow checks against and the release Claude Code installs the plugin from. If Claude Code is installed, it then moves the plugin to that release: start Claude Code again to load it. If it can't, it gives you two commands to run in a terminal in the repository. For `v0.6.1`:
 
 ```bash
-claude plugin marketplace add dbraben/lbbexley-digital-standards#v0.6.0 --scope local
+claude plugin marketplace add dbraben/lbbexley-digital-standards#v0.6.1 --scope local
 claude plugin update lbbexley@lbbexley-digital
 ```
 
@@ -155,7 +155,9 @@ Colleagues who share the repository run the same two commands once the update is
 | The end-of-run check asks for the same review again and again, then says "the end-of-run review didn't run" | Your Claude Code plugin is older than 0.3.1. Update it (see "Keeping the standards up to date"), then start Claude Code again. |
 | Claude Code doesn't start in plan mode | You're using the Claude Code panel, which never takes its starting mode from the project. Run `claude` in VS Code's terminal instead, or set `claudeCode.initialPermissionMode` to `plan` in your VS Code user settings. |
 | The end-of-run check keeps asking to "bring the latest version from the dev environment into the repository" | `pac solution sync` isn't working. Check `pac` is signed in to the dev environment (`pac env who`), and that `src/solution` exists: ask the assistant to clone the solution into it. After three tries the check stops and tells you instead. |
-| The guardrails say `pac` is connected to another environment | Your `pac` profile points somewhere other than the dev environment in `AGENTS.md`. Switch with `pac org select --environment <dev environment>`, or `pac auth create` for it. |
+| The guardrails say `pac` is connected to another environment | Your `pac` profile points somewhere other than the dev environment in `AGENTS.md`. Switch with `pac env select --environment <dev environment>`, or `pac auth create` for it. |
+| A flow or table you built isn't in `src/solution` after the sync | It isn't in the solution: Microsoft's tools create flows and tables outside it. Ask the assistant to add it (`pac solution add-solution-component`) and sync again, and set the service's solution as your preferred solution in Power Apps for anything you create there. |
+| The end-of-run check says the work hasn't been committed or pushed | The assistant stopped before it could. Ask it to commit and push, or run `git status` and do it yourself. A push to a protected `main` fails: work on a branch instead. |
 | The push to GitHub fails | Sign in to GitHub in Git (the GitHub CLI's `gh auth login` sets it up). If `main` is protected, your team wants pull requests: work on a branch. |
 | Microsoft's canvas tools won't connect, or `dnx` isn't found | Install the .NET 10 SDK (`dotnet --list-sdks`), check coauthoring is on, and give `/configure-canvas-mcp` the address of Studio's editing page, not the player. Keep that tab open while you build. |
 | Microsoft's Power Automate tools can't sign in | Run `az login` with the same account as `pac`. If the council's sign-in policies block the Azure CLI, build the flow in the designer and run `/lbbexley:sync` to bring it in. |

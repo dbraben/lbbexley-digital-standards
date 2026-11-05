@@ -81,6 +81,10 @@ To keep things simple for developers, the assistant builds directly in the dev e
 
 What stops this going wrong: the guardrails keep the assistant to the dev environment named in the repository, block deletes and force pushes, and ask the person before anything that can reach people outside the environment, such as running a flow. Microsoft's Power Automate tools keep a backup of each flow before changing it, and the repository keeps every version. Teams working on a service together, and any service heading for test or production, should protect `main` on GitHub and put each change on a branch with a pull request, so a colleague reviews it: the assistant's push to a protected `main` fails, and it says so. Pipelines still do all deployments.
 
+### Microsoft's plugins send usage telemetry
+
+Microsoft's Power Automate, Power Pages and Model Apps plugins for Claude Code and VS Code send usage telemetry to Microsoft by default: tool and command names, outcomes and durations, the Dataverse organisation and Entra tenant GUIDs and, for two of them, the signed-in user's Entra object ID. Microsoft's telemetry guide says events never contain prompts, inputs, names or flow names. The app template turns transmission off for Claude Code sessions (`POWER_PLATFORM_SKILLS_TELEMETRY_<PLUGIN>_OPTOUT` in `.claude/settings.json`), and onboarding tells Copilot users to set the same variables for their account. A local diagnostic log is still written on each developer's computer. Information Governance decides whether the opt-out stays, and whether the local logs matter.
+
 ### Over-trusting the tools
 
 Automated checks and AI reviewers find many problems, but they can't confirm that a service is accessible, lawful or fair. Automated accessibility tests find only part of the WCAG failures a person would. Manual accessibility testing, testing with users, and sign-off from Information Governance and Communications are still required.
@@ -115,3 +119,4 @@ Claude Code's model tiers (`opusplan`, `opus`, `haiku`) follow Anthropic's curre
 | Repository visibility and licence | Not set | Digital Team |
 | Peer review before go-live | Developers working alone commit and push to `main`; teams protect `main` and use a branch and a pull request for each change | Digital Team |
 | Changes in the dev environment without approval | The assistant changes the dev environment without asking; deletes are blocked, and running flows and switching environments ask first | Digital Team |
+| Telemetry from Microsoft's plugins | Turned off in the template for Claude Code; Copilot users set the variables themselves | Information Governance |
