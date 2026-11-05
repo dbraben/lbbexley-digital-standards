@@ -28,9 +28,10 @@ On your laptop:
 | Node.js 22 or later (LTS) | Runs the standards check and the Dataverse MCP server |
 | .NET 10 SDK | Runs Microsoft's canvas app authoring MCP server (canvas apps only) |
 | Power Platform CLI (`pac`) | Connects to your dev environment. Install the Power Platform Tools extension in VS Code, which includes it |
+| Azure CLI (`az`) | Signs in Microsoft's Power Automate tools, which build flows in your dev environment (flows only) |
 | Claude Code, or GitHub Copilot | Your assistant. For Claude Code, install the command-line version from Anthropic's [set-up guide](https://code.claude.com/docs/en/setup), then run `claude` and sign in with your Claude account. You use it in VS Code's terminal (see step 4) |
 
-The Digital Team gives you a Power Platform dev environment and access to the GitHub repositories.
+The Digital Team gives you a Power Platform dev environment and access to the GitHub repositories. You need the dev environment to build: everything is built there, and your repository keeps the latest version.
 
 ### What the Digital Team sets up first
 
@@ -56,7 +57,7 @@ The plugin comes from the release your repository is on, the one in `.github/wor
 If it doesn't offer, add the plugin yourself, for this computer only. Exit Claude Code, run these in the same terminal with your repository's release, then start Claude Code again:
 
 ```bash
-claude plugin marketplace add dbraben/lbbexley-digital-standards#v0.5.0 --scope local
+claude plugin marketplace add dbraben/lbbexley-digital-standards#v0.6.0 --scope local
 claude plugin install lbbexley@lbbexley-digital --scope local
 ```
 
@@ -66,8 +67,8 @@ claude plugin install lbbexley@lbbexley-digital --scope local
 
 1. In Claude Code, run `/lbbexley:new-app` and answer the questions. (In Copilot, ask it to use the `lbbexley-new-app` skill.)
 2. Restart Claude Code so the Microsoft plugins it turned on are loaded.
-3. Canvas apps: run `/configure-canvas-mcp` once.
-4. Connect to your dev environment: `pac auth create --environment https://yourorg-dev.crm11.dynamics.com`.
+3. Connect to your dev environment: `pac auth create --environment https://yourorg-dev.crm11.dynamics.com`. Then ask the assistant to clone the solution into `src/solution`, once the solution exists (step 6).
+4. Canvas apps: create the app in your solution (blank is fine), save it, turn on coauthoring (**Settings**, **Updates**, **Coauthoring**), and keep it open in Power Apps Studio. Then run `/configure-canvas-mcp` with the Studio address. Microsoft's canvas tools change the app through that open tab. Flows: run `az login` with the same account as `pac`.
 5. If you have your own dev environment, set it for the Dataverse MCP server (PowerShell, then restart VS Code):
 
    ```powershell
@@ -97,14 +98,14 @@ Describe people by role, never by name, and don't paste anyone's details. To sta
 
 ## 7. How to work
 
-Every change goes plan, build, check, each step on the model that suits it.
+Every change goes plan, build, check, each step on the model that suits it. The assistant builds in your dev environment, and your repository keeps the guidelines and the latest version: nobody edits the service's source there by hand.
 
 1. **Plan, on the strongest model.** Sessions start in plan mode with `opusplan`, so Claude Code plans on Opus. Describe the user need, not the screens. For a new service, start from the requirements (step 6); for each change, the plan skill writes the plan to `docs/plans/`, with the words users will read and acceptance criteria. In Copilot, use the **lbbexley-plan** agent. Read the plan and approve it, or ask for changes.
-2. **Build, on the everyday model.** Approving the plan switches Claude Code to Sonnet; in Copilot, choose **Build this plan** to hand over to lbbexley-build. Build in small steps, one screen, flow or topic at a time, and read what the assistant writes. The standards check runs every time it saves a file and sends every finding straight back to it.
-3. **Check, on a smaller model.** When the assistant tries to finish, the end-of-run check runs the standards check on everything it changed, then asks the end-of-run reviewer (Haiku) to review the changes for what tools can't see. Claude Code shows that request as a "Stop hook error": it's the check working, not a fault. The reviewer runs in the background, so the assistant's turn can end while it works, with "the review on the smaller model is still running". When the review reports, the assistant carries on by itself. The assistant fixes what it finds before it can finish. When everything passes, the check asks Claude to commit the work for you, on the branch you're on: that's one more "Stop hook error", starting "Bexley end-of-run check passed. Now save the work". You never need to run Git yourself. In Copilot, choose **Check my work** to hand over to lbbexley-check, and when it finds nothing outstanding, **Commit the work**. The assistant stops and lists what's outstanding for you if it can't fix a standards problem in three attempts, if it thinks a reviewer's problem is wrong and explains why instead of fixing it, or after five reviews in one request. Decide what to do about each one: for a reviewer's problem the assistant explained, say if you agree, and it commits the work. Tell the Digital Team if you think a check is wrong.
+2. **Build, on the everyday model, in the dev environment.** Approving the plan switches Claude Code to Sonnet; in Copilot, choose **Build this plan** to hand over to lbbexley-build. The assistant builds directly in the dev environment with Microsoft's tools: a canvas app through the open Power Apps Studio tab, flows with the Power Automate plugin, tables with the Dataverse MCP server, a Power Pages site with the power-pages plugin. It doesn't ask before each change there. The guardrails keep it to the dev environment in `AGENTS.md`, block deletes and force pushes, and ask before it runs a flow or calls a connector. Build in small steps, one screen, flow or topic at a time. The standards check runs on everything it writes and sends every finding straight back to it.
+3. **Check, on a smaller model.** When the assistant tries to finish, the end-of-run check first has it bring the latest version into the repository (`pac solution sync`, and a canvas app's source through the canvas tools), then runs the standards check on everything that changed, then asks the end-of-run reviewer (Haiku) to review the changes for what tools can't see. Claude Code shows that request as a "Stop hook error": it's the check working, not a fault. The reviewer runs in the background, so the assistant's turn can end while it works, with "the review on the smaller model is still running". When the review reports, the assistant carries on by itself. The assistant fixes what it finds before it can finish. When everything passes, the check asks Claude to commit the work for you, on the branch you're on, and push it to GitHub: that's one more "Stop hook error", starting "Bexley end-of-run check passed. Now save the work". You never need to run Git yourself. In Copilot, choose **Check my work** to hand over to lbbexley-check, and when it finds nothing outstanding, **Commit the work**, which commits and pushes it. The assistant stops and lists what's outstanding for you if it can't fix a standards problem in three attempts, if it thinks a reviewer's problem is wrong and explains why instead of fixing it, or after five reviews in one request. Decide what to do about each one: for a reviewer's problem the assistant explained, say if you agree, and it commits the work. Tell the Digital Team if you think a check is wrong.
 4. **Test in your dev environment** with fictional data: `npm run verify` runs the standards check on everything and the accessibility tests. Then test by hand, keyboard only, with a screen reader and at 400% zoom.
 5. **Review.** Run `/lbbexley:review` (Copilot: `/lbbexley-review`) and fix everything it lists, however minor. Do the "Needs a person" tests.
-6. **Share it.** Ask the assistant to push the work to GitHub: it asks before it pushes. The Quality workflow runs the standards check there too and, once your environment's address is set up, the accessibility tests. Working in a team? Put each change on a branch of its own and open a pull request with the template, so a colleague reviews it.
+6. **It's on GitHub already.** Every commit is pushed, and the Quality workflow runs the standards check there too and, once your environment's address is set up, the accessibility tests. Changed something in the dev environment yourself, in Studio or a designer? Run `/lbbexley:sync` (Copilot: the lbbexley-sync skill) so the repository has it. Working in a team? Protect `main` on GitHub, and put each change on a branch of its own with a pull request, so a colleague reviews it.
 
 ### The harness improves itself
 
@@ -115,17 +116,17 @@ The end-of-run reviewer also notes where the harness let you down: a problem the
 When the Digital Team releases a new version of the standards, update your repository as a change of its own, with nothing else in it:
 
 ```bash
-npm run standards:update -- v0.5.0
+npm run standards:update -- v0.6.0
 ```
 
-It updates the synced Bexley files, the release the Quality workflow checks against and the release Claude Code installs the plugin from. If Claude Code is installed, it then moves the plugin to that release: start Claude Code again to load it. If it can't, it gives you two commands to run in a terminal in the repository. For `v0.5.0`:
+It updates the synced Bexley files, the release the Quality workflow checks against and the release Claude Code installs the plugin from. If Claude Code is installed, it then moves the plugin to that release: start Claude Code again to load it. If it can't, it gives you two commands to run in a terminal in the repository. For `v0.6.0`:
 
 ```bash
-claude plugin marketplace add dbraben/lbbexley-digital-standards#v0.5.0 --scope local
+claude plugin marketplace add dbraben/lbbexley-digital-standards#v0.6.0 --scope local
 claude plugin update lbbexley@lbbexley-digital
 ```
 
-Colleagues who share the repository run the same two commands once the update is on GitHub and they've pulled it.
+Colleagues who share the repository run the same two commands once the update is on GitHub and they've pulled it. If the update ends with "To finish moving to this release of the standards", it lists changes to your own files, such as `AGENTS.md` or `.claude/settings.json`: ask the assistant to make them, copying from the app template.
 
 ## Help
 
@@ -153,3 +154,8 @@ Colleagues who share the repository run the same two commands once the update is
 | `/model` doesn't show `opusplan` | Claude Code calls it **Opus Plan Mode**. It's the last option, and it's only listed while it's the model in use. If it isn't there, type `/model opusplan`. |
 | The end-of-run check asks for the same review again and again, then says "the end-of-run review didn't run" | Your Claude Code plugin is older than 0.3.1. Update it (see "Keeping the standards up to date"), then start Claude Code again. |
 | Claude Code doesn't start in plan mode | You're using the Claude Code panel, which never takes its starting mode from the project. Run `claude` in VS Code's terminal instead, or set `claudeCode.initialPermissionMode` to `plan` in your VS Code user settings. |
+| The end-of-run check keeps asking to "bring the latest version from the dev environment into the repository" | `pac solution sync` isn't working. Check `pac` is signed in to the dev environment (`pac env who`), and that `src/solution` exists: ask the assistant to clone the solution into it. After three tries the check stops and tells you instead. |
+| The guardrails say `pac` is connected to another environment | Your `pac` profile points somewhere other than the dev environment in `AGENTS.md`. Switch with `pac org select --environment <dev environment>`, or `pac auth create` for it. |
+| The push to GitHub fails | Sign in to GitHub in Git (the GitHub CLI's `gh auth login` sets it up). If `main` is protected, your team wants pull requests: work on a branch. |
+| Microsoft's canvas tools won't connect, or `dnx` isn't found | Install the .NET 10 SDK (`dotnet --list-sdks`), check coauthoring is on, and give `/configure-canvas-mcp` the address of Studio's editing page, not the player. Keep that tab open while you build. |
+| Microsoft's Power Automate tools can't sign in | Run `az login` with the same account as `pac`. If the council's sign-in policies block the Azure CLI, build the flow in the designer and run `/lbbexley:sync` to bring it in. |

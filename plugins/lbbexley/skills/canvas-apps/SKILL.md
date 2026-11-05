@@ -5,7 +5,7 @@ description: Bexley build standards for Power Apps canvas apps in pa.yaml source
 
 # Canvas apps
 
-Microsoft's canvas-apps plugin (power-platform-skills marketplace) does the authoring: generating and editing apps through the Canvas Authoring MCP server, configured once with `/configure-canvas-mcp`. This skill sets the Bexley standards those apps must meet. Apply the brand, accessibility and content-style skills too.
+Microsoft's canvas-apps plugin (power-platform-skills marketplace) does the authoring: it changes the app in the dev environment through the Canvas Authoring MCP server and the open Power Apps Studio tab, connected with `/configure-canvas-mcp`. This skill sets the Bexley standards those apps must meet, and says where the source lives. Apply the brand, accessibility and content-style skills too.
 
 ## Before the first screen
 
@@ -56,7 +56,10 @@ When you add a screen, add it to `tests/accessibility/targets.json` in the same 
 
 Modern (Fluent) controls take colours from the app theme. If you use them, build a theme from the Bexley tokens instead of styling controls one by one, and still check focus visibility and contrast.
 
-## Source and review
+## Build in the app, keep the source in the repository
 
-- Commit the pa.yaml source under `src/` with each change, so reviewers see the diff.
-- Before you call it done: run App checker > Accessibility in Power Apps Studio, then `/lbbexley:review`. The standards check also catches positive TabIndex values, hidden focus, targets under 24 by 24, token pairs below the contrast minimum and screens without exactly one Heading1.
+1. **The app exists first.** A person creates it in the solution in the dev environment (blank is fine), saves it, turns on coauthoring (**Settings**, **Updates**, **Coauthoring**) and keeps it open in Power Apps Studio. Microsoft's tools can't create the app or turn on coauthoring. Then connect with `/configure-canvas-mcp` and the Studio address.
+2. **One folder per app: `src/canvas/<AppName>/`.** Give Microsoft's canvas tools that folder, by its full path, as their working folder. Sync the app into it before changing anything, change the `.pa.yaml` files there, then compile them into the app. Never leave a change in the files that isn't compiled into the app: the app and the repository must match.
+3. **Microsoft's planning notes** (`.md` files the canvas tools write in that folder) are ignored by Git and the standards check. If the tools won't sync because notes from an earlier session are still there, clear them with `git clean -fX src/canvas/<AppName>/`.
+4. **After compiling**, the end-of-run check has the solution synced into `src/solution`, then reviews, commits and pushes the source. The person saves and publishes the app in Studio when it's ready for others to use.
+5. **Before you call it done:** run App checker > Accessibility in Power Apps Studio, then `/lbbexley:review`. The standards check also catches positive TabIndex values, hidden focus, targets under 24 by 24, token pairs below the contrast minimum and screens without exactly one Heading1.

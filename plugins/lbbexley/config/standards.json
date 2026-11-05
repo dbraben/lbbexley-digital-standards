@@ -107,6 +107,9 @@
     ".lbbexley/standards/",
     ".lbbexley/state/"
   ],
+  "ignorePatterns": [
+    "^src/canvas/[^/]+/[^/]+\\.md$"
+  ],
   "canvasSizes": {
     "BexleySizeH1": 36,
     "BexleySizeH2": 28,

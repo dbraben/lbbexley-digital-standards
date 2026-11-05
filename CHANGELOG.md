@@ -2,6 +2,50 @@
 
 All notable changes to the Bexley digital standards. Versions follow `major.minor.patch`: a new rule that can fail existing builds is a minor version at least.
 
+## 0.6.0 – 5 November 2026
+
+One way of working: everything is built in the dev environment, never as files on their own, and the repository keeps the guidelines and the latest version. The assistant changes the dev environment without asking, brings the latest version into the repository, has it reviewed, then commits it and pushes it to GitHub. This changes how every service works. There are no new rules in the standards check, but a run that changed the dev environment can't finish until the latest version is in the repository, Dataverse changes no longer ask, and the work is pushed without asking. A repository updated from 0.5.0 needs the changes under "Updating from 0.5.0".
+
+Building in the dev environment:
+
+- **Built with Microsoft's tools.** The assistant builds directly in the dev environment named in `AGENTS.md`: a canvas app with Microsoft's canvas-apps plugin, working in `src/canvas/<app name>/` and compiling into the app open in Power Apps Studio; flows with Microsoft's Power Automate plugin; tables and columns with the Dataverse MCP server; a Power Pages site with `pac pages upload`. Building screens or flows as files on their own is no longer a route, and the end-of-run reviewer no longer accepts it. Copilot Studio agents are unchanged: edited in `src/agent/` and applied with the Copilot Studio extension.
+- **The latest version comes into the repository.** A new hook notes each change the assistant makes to what the solution holds in the dev environment: a canvas app, a flow, a table or column, or the Power Pages site. Made-up records aren't in the solution, so they don't need a sync. Before the run can finish, the end-of-run check asks for `pac solution sync` into `src/solution` (cloning the solution there first if it isn't there), and for a canvas app's working folder outside `src/canvas/` to be moved there. Then it reviews what came in, so what's reviewed and committed is what's in the dev environment. If the sync hasn't happened after three requests, the check lets the run finish and tells the person what isn't in the repository yet.
+- **`/lbbexley:sync`** (in Copilot, the lbbexley-sync skill) brings the latest version in after someone changes the dev environment themselves, in Power Apps Studio, the flow designer or the app designer.
+- **Committed and pushed.** When the check is clean, the assistant commits the latest version on the current branch, pushes it to GitHub and tells the person. If the push fails, for example because `main` is protected, it says why. A repository with no remote is committed only. It still doesn't make branches or open pull requests unless the person asks.
+- **The reviewer** reports hand edits to `src/solution`, and canvas app source changed in the run but not compiled into the app.
+
+Guardrails, in both assistants:
+
+- **Dataverse.** Reading and changing tables, columns and records goes ahead without asking: the Dataverse MCP server points only at the dev environment, which holds fictional data only. Deletes are still blocked.
+- **Power Automate** (new). Deleting a flow or a connection, and copying a flow, are blocked. Running a flow, resubmitting a run or calling a connector asks the person first, because it can send real emails or messages. So do changing the environment or the account, and restoring a backup. Building, editing, publishing and turning off flows go ahead.
+- **pac** (new). `pac pages upload` and `download`, and `pac solution sync` and `clone`, run only when pac is connected to the dev environment in `AGENTS.md`. Otherwise they're blocked, with the command to switch. If `AGENTS.md` doesn't name a dev environment yet, or pac can't say where it's connected, the person is asked.
+- **Pushes** (new). A push that could overwrite or delete work on GitHub, such as a force push, a delete, or a mirror or prune push, is blocked. A push to anywhere other than one of the repository's own remotes asks the person first.
+
+Standards check: `config/standards.json` has `ignorePatterns`, paths the check and the end-of-run review leave alone. It lists the planning notes Microsoft's canvas tools write next to each app (`src/canvas/<app name>/*.md`).
+
+Skills and agents:
+
+- The plan skill says where each change is built, in place of "Files to change". The canvas-apps, power-automate, dataverse, power-pages, copilot-studio and quality-checks skills describe building in the dev environment.
+- `/lbbexley:new-app` turns on Microsoft's Power Automate plugin for a service with flows, and says what to set up: the solution, the pac sign-in, the Azure CLI for flows, and coauthoring for a canvas app. The new-app, requirements, architect and improve skills commit and push once the check is clean.
+- In Copilot, lbbexley-build builds in the dev environment, syncs, commits and pushes, and lbbexley-check's **Commit the work** pushes too.
+
+Template:
+
+- `.claude/settings.json` lets Claude use the Dataverse, canvas and Power Automate tools, check where pac is connected, sync and clone the solution, download and upload the Power Pages site, push, and clear the canvas tools' notes with `git clean -fX src/canvas/...`, without asking. `git push` and `pac pages upload` no longer ask. Force pushes, deletes and mirror pushes are denied.
+- `.vscode/settings.json` lets Copilot run the standards check, the commit, the push and the pac commands in the terminal without asking, but not a force push or a delete.
+- `AGENTS.md`: "How work runs: plan, build in the dev environment, check", a rule to keep the latest version under `src/`, and new "Never" items: editing `src/solution` by hand, deleting or copying flows, deleting connections, and force pushes. The tables have the `src/` layout and the sync.
+- `.gitignore` ignores `src/canvas/**/*.md`. The README, CONTRIBUTING, `CLAUDE.md` and `src/README.md` describe the new way of working.
+
+Workshop: rewritten for building in a dev environment from exercise 08 on. Exercise 09 sets up the dev environment once, then builds each kind of resource in it; exercise 10 checks it there, and exercise 11 on GitHub. Exercises 00 to 07 still work without a dev environment. The facilitator guide has a dev environment for each person, the checks to make the day before, and new common problems.
+
+Docs: GOVERNANCE.md has a new section, "Work without peer review, and without approval in the dev environment", and the decisions it needs. The README, the onboarding guide and the setup guide describe the new way of working and how to set it up.
+
+Updating from 0.5.0:
+
+1. Run `npm run standards:update -- v0.6.0`.
+2. Make the changes it lists, copying from the app template: the permissions in `.claude/settings.json`, `src/canvas/**/*.md` in `.gitignore`, the terminal rules in `.vscode/settings.json`, and the "How work runs", "Always" and "Never" parts of `AGENTS.md`.
+3. Set up each developer's dev environment as the onboarding guide says: the solution, a pac sign-in to the dev environment, the Azure CLI for flows, and coauthoring for each canvas app.
+
 ## 0.5.0 – 4 November 2026
 
 Fixes from a review of the workshop and the tests. There are no new rules, but two checks are stricter, so a build that passed with 0.4.0 can fail: the accessibility tests fail a page or screen they couldn't test, and the check on GitHub fails when `.claude/settings.json` or the Quality workflow names a different release from the synced files.

@@ -5,7 +5,9 @@
       {
         "type": "command",
         "command": "node .lbbexley/standards/scripts/session-start.js",
-        "env": { "LBBEXLEY_HARNESS": "copilot" },
+        "env": {
+          "LBBEXLEY_HARNESS": "copilot"
+        },
         "timeoutSec": 10
       }
     ],
@@ -13,23 +15,53 @@
       {
         "type": "command",
         "command": "node .lbbexley/standards/scripts/dataverse-guard.js",
-        "env": { "LBBEXLEY_HARNESS": "copilot" },
+        "env": {
+          "LBBEXLEY_HARNESS": "copilot"
+        },
         "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "command": "node .lbbexley/standards/scripts/flow-guard.js",
+        "env": {
+          "LBBEXLEY_HARNESS": "copilot"
+        },
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "command": "node .lbbexley/standards/scripts/command-guard.js",
+        "env": {
+          "LBBEXLEY_HARNESS": "copilot"
+        },
+        "timeoutSec": 70
       }
     ],
     "postToolUse": [
       {
         "type": "command",
         "command": "node .lbbexley/standards/scripts/check-file.js",
-        "env": { "LBBEXLEY_HARNESS": "copilot" },
+        "env": {
+          "LBBEXLEY_HARNESS": "copilot"
+        },
         "timeoutSec": 30
+      },
+      {
+        "type": "command",
+        "command": "node .lbbexley/standards/scripts/environment-change.js",
+        "env": {
+          "LBBEXLEY_HARNESS": "copilot"
+        },
+        "timeoutSec": 10
       }
     ],
     "agentStop": [
       {
         "type": "command",
         "command": "node .lbbexley/standards/scripts/stop-gate.js",
-        "env": { "LBBEXLEY_HARNESS": "copilot" },
+        "env": {
+          "LBBEXLEY_HARNESS": "copilot"
+        },
         "timeoutSec": 60
       }
     ],
@@ -37,7 +69,9 @@
       {
         "type": "command",
         "command": "node .lbbexley/standards/scripts/end-of-run-record.js",
-        "env": { "LBBEXLEY_HARNESS": "copilot" },
+        "env": {
+          "LBBEXLEY_HARNESS": "copilot"
+        },
         "timeoutSec": 30
       }
     ]

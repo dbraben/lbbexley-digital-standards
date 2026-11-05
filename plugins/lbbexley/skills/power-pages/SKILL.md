@@ -36,8 +36,8 @@ Power Pages exposes Dataverse to the internet, so mistakes leak data.
 
 ## Deployment
 
-- Build and test against the dev site only. Uploads ask for confirmation, and deploying to test and production goes through the pipeline with approval, never from a laptop.
-- Keep site source in the repository (`src/`), and review every change in a pull request.
+- Build and test against the dev site only. Uploads go ahead without asking once the Bexley guardrails have confirmed `pac` is connected to the dev environment in `AGENTS.md`. Deploying to test and production goes through the pipeline with approval, never from a laptop.
+- Keep the site's source in the repository (`src/`). Upload every change to the dev site: the end-of-run check then has the solution synced, and reviews, commits and pushes the change.
 
 ## Before you call it done
 

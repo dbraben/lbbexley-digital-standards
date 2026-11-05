@@ -1,6 +1,6 @@
 ---
 name: plan
-description: How to plan a change to a Bexley service before building it - the plan template with the user need, the exact words users will read, acceptance criteria for accessibility, content and data, the files to change, the tests to add and the compliance documents to update. Use whenever you plan a feature, screen, page, flow, agent topic or table, and always in plan mode.
+description: How to plan a change to a Bexley service before building it - the plan template with the user need, the exact words users will read, acceptance criteria for accessibility, content and data, where in the dev environment it's built, the tests to add and the compliance documents to update. Use whenever you plan a feature, screen, page, flow, agent topic or table, and always in plan mode.
 model: opus
 ---
 
@@ -39,7 +39,9 @@ Headings, labels, hints, buttons, error messages and confirmations, written now 
 - Data: each personal data field and why it's needed; retention
 - Publicity, equality and AI, where they apply
 
-## Files to change
+## Where it's built
+The resource in the dev environment that changes (the app, flow, table or site, in the solution named
+in AGENTS.md) and the tool that changes it. The latest version comes into src/ through the sync.
 
 ## Tests
 - Pages or screens to add to tests/accessibility/targets.json
@@ -54,6 +56,7 @@ Headings, labels, hints, buttons, error messages and confirmations, written now 
 ## Rules
 
 - Write the real words users will read in the plan. Placeholder text isn't a plan.
+- Everything is built in the dev environment, never as files on their own: a canvas app with Microsoft's canvas tools, a flow with Microsoft's Power Automate plugin, tables and columns with the Dataverse MCP server, a Power Pages site with Microsoft's power-pages plugin. If the resource doesn't exist yet and only a person can create it (a blank canvas app with coauthoring on, say), say so in the plan.
 - Every acceptance criterion must be something a person or a test can check.
 - If the plan needs a decision someone else must make (Information Governance, Communications, the service owner), say so and don't assume the answer.
 - Keep plans small. A change that needs more than a day of building is two plans.

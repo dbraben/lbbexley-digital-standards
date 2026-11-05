@@ -941,9 +941,14 @@ function ignoreRulesFor(relPath, entries) {
   return set;
 }
 
+// Paths the standards check never looks at: the synced Bexley files and the
+// harness's state (ignorePaths, by prefix), and files other tools keep next to
+// the service's source, such as the planning notes Microsoft's canvas tools
+// write in the app's folder (ignorePatterns, regular expressions).
 function isIgnoredPath(rel, cfg) {
   const p = rel.replace(/\\/g, '/');
-  return (cfg.ignorePaths || []).some(prefix => p === prefix.replace(/\/$/, '') || p.startsWith(prefix));
+  if ((cfg.ignorePaths || []).some(prefix => p === prefix.replace(/\/$/, '') || p.startsWith(prefix))) return true;
+  return (cfg.ignorePatterns || []).some(re => new RegExp(re).test(p));
 }
 
 function collectFiles(inputs, root, cfg) {

@@ -64,7 +64,7 @@ test('prompt guard lets [fictional] prompts, safe formats and other projects thr
 
 // ---------- Dataverse guard ----------
 
-test('Dataverse guard: schema tools run, reads and writes ask, deletes are denied', () => {
+test('Dataverse guard: in the dev environment, reads and writes go ahead and deletes are denied', () => {
   const decide = (tool, env) => {
     const res = run(hook('dataverse-guard.js'), [], { input: { tool_name: tool, tool_input: {} }, env });
     if (!res.stdout) return 'none';
@@ -73,8 +73,9 @@ test('Dataverse guard: schema tools run, reads and writes ask, deletes are denie
   };
   assert.equal(decide('mcp__dataverse__list_tables'), 'none');
   assert.equal(decide('mcp__dataverse__describe_table'), 'none');
-  assert.equal(decide('mcp__dataverse__read_query'), 'ask');
-  assert.equal(decide('mcp__dataverse__create_record'), 'ask');
+  assert.equal(decide('mcp__dataverse__read_query'), 'none');
+  assert.equal(decide('mcp__dataverse__create_record'), 'none');
+  assert.equal(decide('mcp__dataverse__create_table'), 'none');
   assert.equal(decide('mcp__dataverse__delete_record'), 'deny');
   assert.equal(decide('dataverse/delete_table', COPILOT), 'deny', 'Copilot tool names and output shape');
   assert.equal(decide('edit', COPILOT), 'none', 'Copilot: other tools are left alone');
@@ -384,7 +385,7 @@ test('stop gate: once everything passes, asks once for each request for the work
   const saveIt = JSON.parse(stop(dir).stdout);
   assert.equal(saveIt.decision, 'block');
   assert.match(saveIt.reason, /^Bexley end-of-run check passed\. Now save the work, as AGENTS\.md says: commit the 1 file\(s\) this run changed, on the current branch, with a short message/);
-  assert.match(saveIt.reason, /Don't make a branch, push or open a pull request unless they asked:\n- src\/Home\.pa\.yaml$/);
+  assert.match(saveIt.reason, /There's no remote to push it to\. Don't make a branch or open a pull request unless they asked:\n- src\/Home\.pa\.yaml$/);
   assert.doesNotMatch(saveIt.reason, /\.vtt|\.lbbexley\/state/, 'transcripts and harness state are never offered');
 
   // The person had said not to commit: the assistant says so, and isn't asked again for this request.
@@ -515,4 +516,170 @@ test('hooks fail open on bad input', () => {
 
 test('the hook tests leave the standards repository untouched', () => {
   assert.ok(!fs.existsSync(path.join(__dirname, '..', '.lbbexley', 'state')));
+});
+
+// ---------- building in the dev environment ----------
+
+const afterTool = (dir, input, env = {}) => run(hook('environment-change.js'), [], { input: { cwd: dir, session_id: 's1', ...input }, env });
+const decideWith = (script, input, env = {}) => {
+  const res = run(hook(script), [], { input, env });
+  if (!res.stdout) return { decision: 'none' };
+  const out = JSON.parse(res.stdout);
+  const o = out.hookSpecificOutput || out;
+  return { decision: o.permissionDecision, reason: o.permissionDecisionReason };
+};
+
+test('stop gate: a change in the dev environment is synced into the repository before the review', () => {
+  const dir = gitRepo({ 'src/canvas/Bookings/Home.pa.yaml': GOOD_CANVAS });
+  run(hook('session-start.js'), [], { input: { cwd: dir, session_id: 's1' } });
+  write(dir, 'src/canvas/Bookings/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', 'BexleyPanel'));
+  saved(dir, 'src/canvas/Bookings/Home.pa.yaml');
+  afterTool(dir, { tool_name: 'mcp__plugin_canvas-apps_canvas-authoring__compile_canvas', tool_input: { directory: path.join(dir, 'src/canvas/Bookings') } });
+  afterTool(dir, { tool_name: 'mcp__plugin_power-automate_flowagent__update_flow', tool_input: {} });
+
+  const sync = JSON.parse(stop(dir).stdout);
+  assert.equal(sync.decision, 'block');
+  assert.match(sync.reason, /bring the latest version from the dev environment into the repository: this run changed the canvas app, a flow there/);
+  assert.match(sync.reason, /pac solution sync in src\/solution/);
+  assert.doesNotMatch(sync.reason, /Move its \.pa\.yaml files/, 'the canvas app was built in src/canvas');
+
+  // A sync that failed doesn't count; one that worked does, and the review follows.
+  afterTool(dir, { tool_name: 'Bash', tool_input: { command: 'cd src/solution && pac solution sync' }, tool_response: { stdout: 'Error: not signed in', stderr: '' } });
+  assert.match(JSON.parse(stop(dir).stdout).reason, /pac solution sync/);
+  afterTool(dir, { tool_name: 'Bash', tool_input: { command: 'cd src/solution && pac solution sync' }, tool_response: { stdout: 'Solution synced', stderr: '' } });
+  assert.match(JSON.parse(stop(dir).stdout).reason, /end-of-run-reviewer/);
+});
+
+test('stop gate: changes in the dev environment come from each kind of tool, in both assistants', () => {
+  const pending = (input, env) => {
+    const dir = gitRepo({ 'README.md': 'x\n' });
+    afterTool(dir, input, env);
+    const file = path.join(dir, '.lbbexley', 'state', 's1.json');
+    return fs.existsSync(file) && Boolean((state(dir).environment || {}).pending);
+  };
+  assert.ok(pending({ tool_name: 'mcp__dataverse__create_table', tool_input: {} }));
+  assert.ok(pending({ toolName: 'dataverse/update_table', toolArgs: '{}', sessionId: 's1' }, COPILOT));
+  assert.ok(pending({ toolName: 'flowagent/publish_flow', toolArgs: '{}', sessionId: 's1' }, COPILOT));
+  assert.ok(pending({ toolName: 'canvas-authoring/compile_canvas', toolArgs: '{}', sessionId: 's1' }, COPILOT));
+  assert.ok(pending({ tool_name: 'PowerShell', tool_input: { command: 'pac pages upload --path src/pages --modelVersion 2' } }));
+  assert.ok(!pending({ tool_name: 'mcp__dataverse__read_query', tool_input: {} }), 'reading changes nothing');
+  assert.ok(!pending({ tool_name: 'mcp__dataverse__create_record', tool_input: {} }), 'made-up records aren\'t in the solution, so there\'s nothing to sync');
+  assert.ok(!pending({ toolName: 'dataverse/update_record', toolArgs: '{}', sessionId: 's1' }, COPILOT));
+  assert.ok(!pending({ tool_name: 'mcp__plugin_power-automate_flowagent__get_flow', tool_input: {} }));
+  assert.ok(!pending({ tool_name: 'mcp__plugin_canvas-apps_canvas-authoring__sync_canvas', tool_input: {} }));
+  assert.ok(!pending({ tool_name: 'Bash', tool_input: { command: 'npm run check' } }));
+});
+
+test('stop gate: a canvas app built outside src/canvas is moved there, and a sync that never happens is handed to the person', () => {
+  const dir = gitRepo({ 'README.md': 'x\n' });
+  afterTool(dir, { tool_name: 'mcp__plugin_canvas-apps_canvas-authoring__compile_canvas', tool_input: { directory: path.join(dir, 'bookings-app') } });
+  const first = JSON.parse(stop(dir).stdout);
+  assert.match(first.reason, /compiled from bookings-app\. Move its \.pa\.yaml files into src\/canvas\/<app name>\//);
+  assert.doesNotMatch(JSON.parse(stop(dir).stdout).reason, /Move its/, 'asked once');
+  assert.equal(JSON.parse(stop(dir).stdout).decision, 'block', 'asked three times');
+  const gaveUp = JSON.parse(stop(dir).stdout);
+  assert.equal(gaveUp.decision, undefined);
+  assert.match(gaveUp.systemMessage, /the latest version hasn't come into the repository/);
+  assert.equal((state(dir).environment || {}).pending, false);
+});
+
+test('stop gate: with a remote, the work is pushed after it is committed', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
+  const remote = fs.mkdtempSync(path.join(require('os').tmpdir(), 'lbbexley-remote-'));
+  spawnSync('git', ['init', '-q', '--bare', remote]);
+  spawnSync('git', ['remote', 'add', 'origin', remote], { cwd: dir });
+  promptSent(dir, 'user');
+  write(dir, 'src/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', 'BexleyPanel'));
+  saved(dir, 'src/Home.pa.yaml');
+  stop(dir);
+  reviewerDone(dir, report({ work: [], harness: [] }));
+  const saveIt = JSON.parse(stop(dir).stdout);
+  assert.match(saveIt.reason, /then push it to GitHub with git push, and tell the person it's committed and pushed\. If the push fails, tell them why\./);
+});
+
+test('Power Automate guard: deletes and copies are blocked, runs and environment switches ask, building goes ahead', () => {
+  const flow = (tool, env) => decideWith('flow-guard.js', { tool_name: tool, tool_input: {}, toolName: tool }, env).decision;
+  assert.equal(flow('mcp__plugin_power-automate_flowagent__delete_flow'), 'deny');
+  assert.equal(flow('mcp__plugin_power-automate_flowagent__copy_flow'), 'deny');
+  assert.equal(flow('mcp__plugin_power-automate_flowagent__delete_connection'), 'deny');
+  assert.equal(flow('mcp__plugin_power-automate_flowagent__run_flow'), 'ask');
+  assert.equal(flow('mcp__plugin_power-automate_flowagent__invoke_operation'), 'ask');
+  assert.equal(flow('mcp__plugin_power-automate_flowagent__set_current_env'), 'ask');
+  assert.equal(flow('mcp__plugin_power-automate_flowagent__restore_backup'), 'ask');
+  for (const op of ['create_flow', 'edit_flow', 'update_flow', 'publish_flow', 'disable_flow', 'get_flow', 'list_flows']) {
+    assert.equal(flow(`mcp__plugin_power-automate_flowagent__${op}`), 'none', op);
+  }
+  assert.equal(flow('flowagent/delete_flow', COPILOT), 'deny', 'Copilot tool names');
+  assert.equal(flow('edit', COPILOT), 'none', 'Copilot: other tools are left alone');
+});
+
+test('command guard: pac commands that use an environment only run against the dev environment in AGENTS.md', { skip: process.platform === 'win32' && 'the stand-in for pac is a shell script' }, () => {
+  const bin = fs.mkdtempSync(path.join(require('os').tmpdir(), 'lbbexley-pac-'));
+  const fakePac = url => {
+    fs.writeFileSync(path.join(bin, 'pac'), url === null ? '#!/bin/sh\nexit 1\n' : `#!/bin/sh\necho "Org URL: ${url}"\n`);
+    fs.chmodSync(path.join(bin, 'pac'), 0o755);
+  };
+  const agents = url => `# Test service\n\nBexley standards apply (lbbexley plugin).\n\n| | |\n|---|---|\n| Dev environment | ${url} |\n`;
+  const dir = tempRepo({ 'AGENTS.md': agents('https://contoso-dev.crm11.dynamics.com') });
+  const env = { PATH: `${bin}${path.delimiter}${process.env.PATH}` };
+  const pac = (command, where = dir) => decideWith('command-guard.js', { cwd: where, tool_name: 'Bash', tool_input: { command } }, env);
+
+  fakePac('https://contoso-dev.crm11.dynamics.com/');
+  assert.equal(pac('pac pages upload --path src/pages --modelVersion 2').decision, 'none', 'the dev environment');
+  assert.equal(pac('cd src/solution && pac solution sync').decision, 'none');
+  fakePac('https://contoso.crm11.dynamics.com/');
+  const wrong = pac('pac pages upload --path src/pages');
+  assert.equal(wrong.decision, 'deny');
+  assert.match(wrong.reason, /pac is connected to https:\/\/contoso\.crm11\.dynamics\.com\/, not the dev environment in AGENTS\.md \(https:\/\/contoso-dev\.crm11\.dynamics\.com\)/);
+  assert.equal(pac('pac solution sync').decision, 'deny');
+  assert.equal(pac('npm run check').decision, 'none', 'other commands are left alone');
+  fakePac(null);
+  assert.equal(pac('pac solution clone --name lbbexleyTest').decision, 'ask', 'pac can\'t say where it is');
+  const unset = tempRepo({ 'AGENTS.md': agents('{{DEV_ENVIRONMENT_URL}}') });
+  fakePac('https://contoso-dev.crm11.dynamics.com/');
+  assert.equal(pac('pac pages upload --path src/pages', unset).decision, 'ask', 'no dev environment named yet');
+});
+
+test('file check: the planning notes Microsoft\'s canvas tools write next to an app aren\'t checked or reviewed', () => {
+  const dir = gitRepo({ 'src/canvas/Bookings/Home.pa.yaml': GOOD_CANVAS });
+  write(dir, 'src/canvas/Bookings/create-design.md', '# Design\n\n✅ Uses a gallery, e.g. for bookings.\n');
+  const res = saved(dir, 'src/canvas/Bookings/create-design.md');
+  assert.equal(res.code, 0);
+  assert.equal(res.stdout, '');
+  assert.ok(!fs.existsSync(path.join(dir, '.lbbexley/state/s1.json')) || !state(dir).edited.includes('src/canvas/Bookings/create-design.md'));
+  write(dir, 'src/canvas/Bookings/Home.pa.yaml', BAD_CANVAS);
+  assert.equal(saved(dir, 'src/canvas/Bookings/Home.pa.yaml').code, 2, 'the app\'s source still is');
+});
+
+test('command guard: an ordinary push goes ahead, one that could overwrite or delete work on GitHub is blocked', () => {
+  const dir = gitRepo({ 'README.md': '# Test\n' });
+  spawnSync('git', ['remote', 'add', 'origin', 'https://github.invalid/council/test-service.git'], { cwd: dir });
+  const push = (command, env = {}) => decideWith('command-guard.js', { cwd: dir, tool_name: 'Bash', tool_input: { command } }, env);
+  for (const ok of [
+    'git push',
+    'git push -u origin feature/bookings',
+    'git push origin HEAD:main',
+    'git add -A && git commit -m "Remove the -f flag and the --force wording" && git push',
+    'git push 2>&1',
+    'git push --set-upstream origin main > push.log',
+  ]) assert.equal(push(ok).decision, 'none', ok);
+  for (const risky of [
+    'git push --force',
+    'git push origin main --force-with-lease',
+    'git push -fu origin main',
+    'git push origin +main',
+    'git push origin :old-branch',
+    'git push --delete origin old-branch',
+    'git push -d origin old-branch',
+    'git push --mirror',
+    'git push --prune origin',
+    'git -C . push -f',
+    'git commit -m "Tidy" && git push --force',
+  ]) assert.equal(push(risky).decision, 'deny', risky);
+  const elsewhere = push('git push https://github.invalid/someone-else/copy.git main');
+  assert.equal(elsewhere.decision, 'ask');
+  assert.match(elsewhere.reason, /isn't one of this repository's remotes/);
+  assert.equal(decideWith('command-guard.js', { cwd: dir, toolName: 'run_in_terminal', toolArgs: JSON.stringify({ command: 'git push --force' }) }, COPILOT).decision, 'deny', 'Copilot');
+  const other = fs.mkdtempSync(path.join(require('os').tmpdir(), 'lbbexley-other-'));
+  assert.equal(decideWith('command-guard.js', { cwd: other, tool_name: 'Bash', tool_input: { command: 'git push --force' } }).decision, 'none', 'only in Bexley projects');
 });

@@ -59,7 +59,7 @@ During the pilot, developers use AI subscriptions they pay for themselves (Claud
 - **No central control.** The council can't manage access, see usage, apply policies or remove access when someone leaves.
 - **Cost and fairness.** Staff paying for work tools themselves may not be sustainable or fair, and may raise HR questions.
 
-Controls in place for the pilot: dev environments only, fictional data only, the prompt guard on personal data, the Dataverse guard, commands that import, delete or deploy solutions denied, the standards check on every save and at the end of every run, the assistant committing only once that check is clean and asking before it pushes, the same check on GitHub for every push to `main` and every pull request, and the privacy settings in onboarding.
+Controls in place for the pilot: dev environments only, fictional data only, the prompt guard on personal data, guards that keep the assistant to the dev environment named in each repository and block deleting Dataverse data, flows and connections, commands that import, delete or deploy solutions denied, force pushes denied, the standards check on every save and at the end of every run, the assistant committing and pushing only once that check is clean, the same check on GitHub for every push and every pull request, and the privacy settings in onboarding.
 
 **Recommendation.** Get Information Governance and the Data Protection Officer to approve the pilot on these terms, and move to a council-managed plan (such as Claude Team or Enterprise, or GitHub Copilot Business) before any wider rollout.
 
@@ -75,9 +75,11 @@ Controls: the original stays outside the repository, and `npm run transcript:cle
 
 The repositories currently sit under a personal GitHub account (`dbraben`). For rollout, move them to a council GitHub organisation, so ownership, access and audit sit with the council, and update the references in the app template (`.claude/settings.json`, the workflow, CODEOWNERS).
 
-### Work without peer review
+### Work without peer review, and without approval in the dev environment
 
-To keep things simple for developers, the assistant commits each piece of work on the branch they're on, usually `main`, once the end-of-run check is clean. Nobody else reviews the change before it's saved. The standards check, the end-of-run review and the check on GitHub still run on everything, and `/lbbexley:review` is the definition of done for each story. Teams working on a service together, and any service heading for test or production, should put each change on a branch and open a pull request, so a colleague reviews it. Pipelines still do all deployments.
+To keep things simple for developers, the assistant builds directly in the dev environment without asking before each change, then commits each piece of work on the branch they're on, usually `main`, and pushes it to GitHub once the end-of-run check is clean. Nobody else reviews the change before it's saved and pushed. The standards check, the end-of-run review and the check on GitHub still run on everything, and `/lbbexley:review` is the definition of done for each story.
+
+What stops this going wrong: the guardrails keep the assistant to the dev environment named in the repository, block deletes and force pushes, and ask the person before anything that can reach people outside the environment, such as running a flow. Microsoft's Power Automate tools keep a backup of each flow before changing it, and the repository keeps every version. Teams working on a service together, and any service heading for test or production, should protect `main` on GitHub and put each change on a branch with a pull request, so a colleague reviews it: the assistant's push to a protected `main` fails, and it says so. Pipelines still do all deployments.
 
 ### Over-trusting the tools
 
@@ -111,4 +113,5 @@ Claude Code's model tiers (`opusplan`, `opus`, `haiku`) follow Anthropic's curre
 | Recording discovery meetings, and how long original transcripts are kept | Originals deleted once the requirements are agreed; cleaned copies never committed | Information Governance |
 | Publishing ATRS records | Recommended for public-facing AI | Digital Team and Information Governance |
 | Repository visibility and licence | Not set | Digital Team |
-| Peer review before go-live | Developers working alone commit to `main`; teams use a branch and a pull request for each change | Digital Team |
+| Peer review before go-live | Developers working alone commit and push to `main`; teams protect `main` and use a branch and a pull request for each change | Digital Team |
+| Changes in the dev environment without approval | The assistant changes the dev environment without asking; deletes are blocked, and running flows and switching environments ask first | Digital Team |

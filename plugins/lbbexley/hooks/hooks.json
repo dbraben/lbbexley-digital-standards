@@ -1,5 +1,5 @@
 {
-  "description": "Bexley guardrails: session context and pre-election warnings, a personal-data guard on prompts, a Dataverse guard, the standards check on every saved file, and the end-of-run gate with its review on a smaller model, which it waits for when the review runs in the background.",
+  "description": "Bexley guardrails: session context and pre-election warnings, a personal-data guard on prompts, guards for Dataverse, Power Automate and pac that keep the assistant to the dev environment, a guard that stops pushes that could overwrite or delete work on GitHub, the standards check on every saved file, a note of every change to the dev environment, and the end-of-run gate, which brings the latest version into the repository, has the work reviewed on a smaller model, then committed and pushed.",
   "hooks": {
     "SessionStart": [
       {
@@ -7,7 +7,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/session-start.js"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/session-start.js"
+            ],
             "timeout": 10
           }
         ]
@@ -19,7 +21,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/prompt-guard.js"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/prompt-guard.js"
+            ],
             "timeout": 10
           }
         ]
@@ -32,8 +36,36 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/dataverse-guard.js"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/dataverse-guard.js"
+            ],
             "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "^mcp__.*flowagent.*__",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/flow-guard.js"
+            ],
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "^(Bash|PowerShell)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/command-guard.js"
+            ],
+            "timeout": 70
           }
         ]
       }
@@ -45,8 +77,23 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/check-file.js"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/check-file.js"
+            ],
             "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "^mcp__.*(canvas-authoring|flowagent|dataverse).*__|^(Bash|PowerShell)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/environment-change.js"
+            ],
+            "timeout": 10
           }
         ]
       }
@@ -57,7 +104,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/stop-gate.js"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/stop-gate.js"
+            ],
             "timeout": 60
           }
         ]
@@ -70,7 +119,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/end-of-run-record.js"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/end-of-run-record.js"
+            ],
             "timeout": 10
           }
         ]
@@ -82,7 +133,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/end-of-run-record.js"],
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/end-of-run-record.js"
+            ],
             "timeout": 30
           }
         ]

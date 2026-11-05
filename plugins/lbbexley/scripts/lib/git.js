@@ -43,10 +43,16 @@ function deletedFiles(root) {
   return out;
 }
 
+// Does the repository have a remote, such as GitHub, to push to?
+function hasRemote(root) {
+  const remotes = git(root, ['remote']);
+  return Boolean(remotes && remotes.trim());
+}
+
 // A unified diff of tracked changes, for the end-of-run reviewer to read.
 function workingDiff(root, files, maxBytes = 60000) {
   const diff = git(root, ['diff', 'HEAD', '--', ...files]) || '';
   return diff.length > maxBytes ? diff.slice(0, maxBytes) + '\n[diff shortened]\n' : diff;
 }
 
-module.exports = { isRepo, changedFiles, deletedFiles, workingDiff };
+module.exports = { isRepo, changedFiles, deletedFiles, hasRemote, workingDiff };

@@ -289,7 +289,7 @@ test('sync: leaves the repository\'s own files alone, removes stale ones and det
 const VERSION = readJson(path.join(PLUGIN, '.claude-plugin', 'plugin.json')).version;
 const settingsPinnedTo = ref => JSON.stringify({
   extraKnownMarketplaces: { 'lbbexley-digital': { source: { source: 'github', repo: 'dbraben/lbbexley-digital-standards', ...(ref ? { ref } : {}) } } },
-  permissions: { allow: ['Bash(git add *)', 'Bash(git commit *)'] },
+  permissions: { allow: ['Bash(git add *)', 'Bash(git commit *)', 'Bash(pac solution sync*)', 'Bash(git push *)'] },
 }, null, 2);
 const workflowPinnedTo = (uses, ref) => [
   'jobs:',
@@ -371,4 +371,30 @@ test('update: moves the check on GitHub and the Claude Code marketplace to the r
   assert.match(res.stdout, /claude plugin update lbbexley@lbbexley-digital/);
   assert.equal(run(SYNC, ['--target', app, '--check']).code, 0, 'every pin now names the release');
   fs.rmSync(work, { recursive: true, force: true });
+});
+
+test('sync: says how to move a repository made from an older template to building in the dev environment', () => {
+  const old = tempRepo({
+    'package.json': JSON.stringify({ scripts: { 'transcript:clean': 'node .lbbexley/standards/scripts/clean-transcript.js' } }),
+    'docs/discovery/.gitignore': '*\n',
+    '.claude/settings.json': JSON.stringify({ extraKnownMarketplaces: { 'lbbexley-digital': { source: { source: 'github', repo: 'dbraben/lbbexley-digital-standards', ref: `v${VERSION}` } } }, permissions: { allow: ['Bash(git add *)', 'Bash(git commit *)'] } }),
+    '.gitignore': '*.vtt\n*.roles.json\n',
+    'AGENTS.md': '# Service\n\nBexley standards apply (lbbexley plugin).\n',
+    '.vscode/settings.json': JSON.stringify({ 'chat.useHooks': true }),
+  });
+  const res = run(SYNC, ['--target', old]);
+  assert.match(res.stdout, /let the assistant build in the dev environment, bring in the latest version, commit and push without asking/);
+  assert.match(res.stdout, /In \.gitignore, add src\/canvas\/\*\*\/\*\.md/);
+  assert.match(res.stdout, /In AGENTS\.md, replace the "How work runs" section/);
+  assert.match(res.stdout, /In \.vscode\/settings\.json, add the app template's chat\.tools\.terminal\.autoApprove rules/);
+
+  const current = tempRepo({
+    'package.json': JSON.stringify({ scripts: { 'transcript:clean': 'node .lbbexley/standards/scripts/clean-transcript.js' } }),
+    'docs/discovery/.gitignore': '*\n',
+    '.claude/settings.json': JSON.stringify({ extraKnownMarketplaces: { 'lbbexley-digital': { source: { source: 'github', repo: 'dbraben/lbbexley-digital-standards', ref: `v${VERSION}` } } }, permissions: { allow: ['Bash(git commit *)', 'Bash(pac solution sync*)', 'Bash(git push *)'] } }),
+    '.gitignore': '*.vtt\n*.roles.json\nsrc/canvas/**/*.md\n',
+    'AGENTS.md': '# Service\n\nBexley standards apply (lbbexley plugin). Run pac solution sync after each change.\n',
+    '.vscode/settings.json': JSON.stringify({ 'chat.tools.terminal.autoApprove': { '/^git push$/': true } }),
+  });
+  assert.doesNotMatch(run(SYNC, ['--target', current]).stdout, /To finish moving/);
 });

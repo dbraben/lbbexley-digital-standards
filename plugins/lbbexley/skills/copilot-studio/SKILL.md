@@ -37,7 +37,7 @@ An agent speaks for the council, so it follows the content-style, accessibility,
 
 ## Source control
 
-Agent source cloned with the Copilot Studio extension for VS Code (`.mcs.yml` files) lives under `src/` and is checked by the standards check. Review changes in pull requests, and publish only from the approved environment.
+Agent source cloned with the Copilot Studio extension for VS Code (`.mcs.yml` files) lives under `src/` and is checked by the standards check, then reviewed, committed and pushed by the end-of-run check. There's no tool for the assistant to change an agent directly: the person applies each change with the extension. Publish only from the approved environment.
 
 ## Testing before publishing
 

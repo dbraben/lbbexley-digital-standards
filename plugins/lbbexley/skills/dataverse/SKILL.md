@@ -10,7 +10,7 @@ description: Bexley standards for Dataverse and model-driven apps - publisher an
 - Every customisation goes in a solution owned by the Bexley publisher, prefix **`lbbexley`**. The publisher is created once by the Digital Team and imported into each dev environment. Don't create your own, and never use the Default solution or the default publisher. The standards check rejects solutions with another prefix.
 - One solution per service, with a clear unique name such as `lbbexleyParkingPermits`.
 - **Environments.** Build in dev. Test and production receive managed solutions through the pipeline, with approval. Never customise test or production directly.
-- Commit the unpacked solution source under `src/` so every change is reviewed.
+- Build in the dev environment. After every change, the solution is synced into `src/solution` (pac solution sync), reviewed, committed and pushed. Never edit the synced files by hand.
 
 ## Tables and columns
 
@@ -44,4 +44,4 @@ Set disposal up when you create the table: a bulk-deletion job, a retention poli
 
 ## The Dataverse MCP server
 
-The app template connects the Dataverse MCP server to the dev environment set in `DATAVERSE_DEV_URL`. <!-- claude-only -->The harness lets the assistant list and describe tables freely, asks before any tool reads records or changes data, and blocks deletes. <!-- /claude-only --><!-- copilot: VS Code asks before each MCP tool call: approve reads and changes only against the dev environment, and never approve deletes. --> Point it only at a dev environment that holds fictional data.
+The app template connects the Dataverse MCP server to the dev environment set in `DATAVERSE_DEV_URL`. <!-- claude-only -->In the dev environment the assistant reads and changes tables, columns and records without asking, and the harness blocks deletes. <!-- /claude-only --><!-- copilot: The harness blocks deletes. VS Code may ask before other MCP tool calls: approve them only against the dev environment. --> Point it only at a dev environment that holds fictional data.

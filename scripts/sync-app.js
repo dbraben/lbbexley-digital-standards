@@ -277,13 +277,29 @@ function migrationNotes(target) {
   }
   const allow = (settings && settings.permissions && settings.permissions.allow) || [];
   if (settings && !allow.includes('Bash(git commit *)')) {
-    notes.push('In .claude/settings.json, add "Bash(git add *)", "Bash(git commit *)" and the PowerShell versions to permissions.allow, so Claude can commit the work for people without asking. Keep git push in the ask list.');
+    notes.push('In .claude/settings.json, add "Bash(git add *)", "Bash(git commit *)" and the PowerShell versions to permissions.allow, so Claude can commit the work for people without asking.');
+  }
+  if (settings && !(allow.includes('Bash(git push *)') && allow.some(rule => rule.startsWith('Bash(pac solution sync')))) {
+    notes.push('In .claude/settings.json, let the assistant build in the dev environment, bring in the latest version, commit and push without asking, as the app template does: add the Dataverse, canvas and Power Automate tools, pac solution sync and clone, pac pages download and upload, and git push to permissions.allow, take git push and pac pages upload out of permissions.ask, and add the deny rules for force pushes.');
   }
   try {
     const ignore = fs.readFileSync(path.join(target, '.gitignore'), 'utf8');
     if (app && !/^\*\.vtt$/m.test(ignore)) notes.push('In .gitignore, add *.vtt and *.roles.json, so an original meeting transcript put in the repository by mistake is never committed.');
+    if (app && !/^src\/canvas\/\*\*\/\*\.md$/m.test(ignore)) notes.push('In .gitignore, add src/canvas/**/*.md, so the planning notes Microsoft\'s canvas tools write next to each app are never committed.');
   } catch {
     // No .gitignore: nothing to say.
+  }
+  try {
+    const vscode = fs.readFileSync(path.join(target, '.vscode', 'settings.json'), 'utf8');
+    if (app && !/chat\.tools\.terminal\.autoApprove/.test(vscode)) notes.push('In .vscode/settings.json, add the app template\'s chat.tools.terminal.autoApprove rules, so Copilot can sync the solution, commit and push without asking, but not force-push or delete.');
+  } catch {
+    // No VS Code settings: nothing to say.
+  }
+  try {
+    const agents = fs.readFileSync(path.join(target, 'AGENTS.md'), 'utf8');
+    if (app && !/pac solution sync/.test(agents)) notes.push('In AGENTS.md, replace the "How work runs" section, and the "Always" and "Never" lists, with the app template\'s: the work is built in the dev environment, the latest version is synced into the repository, then committed and pushed, and nothing is deleted or force-pushed.');
+  } catch {
+    // No AGENTS.md: nothing to say.
   }
   return notes;
 }

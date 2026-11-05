@@ -12,7 +12,7 @@ Bexley's definition of done is zero findings of any severity. Never weaken a che
 | Check | Command | When |
 |---|---|---|
 | Standards check, changed files | `npm run check` | After any change. It also runs automatically on every save and before the assistant finishes |
-| Standards check, whole repository | `npm run check:all` | Before a pull request |
+| Standards check, whole repository | `npm run check:all` | Before a story is done |
 | Accessibility tests (WCAG 2.2 AA) | `npm run test:a11y` | After any change people see |
 | Sign in for the accessibility tests | `npm run test:a11y:login` | First time, and when the saved sign-in expires |
 | Install the test browser | `npm run test:a11y:install` | Once per machine |

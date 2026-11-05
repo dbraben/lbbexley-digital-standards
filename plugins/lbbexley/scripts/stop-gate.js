@@ -2,6 +2,10 @@
 'use strict';
 // End-of-run gate. Runs when the assistant tries to finish a turn.
 //
+//  0. When the run changed the dev environment (a canvas app, a flow,
+//     Dataverse or a Power Pages site), the latest version comes into the
+//     repository first: pac solution sync into src/solution, with the canvas
+//     app's source in src/canvas/. environment-change.js notes the changes.
 //  1. Standards check on every file changed in this run. Any finding, however
 //     minor, keeps the assistant working until it's fixed.
 //  2. Problems the end-of-run reviewer reported must be fixed: the file has
@@ -9,10 +13,11 @@
 //  3. Files changed since the last review need a review by the smaller model:
 //     the lbbexley:end-of-run-reviewer agent (Haiku) in Claude Code, or the
 //     lbbexley-check agent in Copilot.
-//  4. When everything passes, the assistant commits what the run changed, so
-//     the person never has to. It's asked once for each request from the
-//     person, and only after the review, which reads the uncommitted changes.
-//     In Copilot, lbbexley-check offers the commit as a handover instead.
+//  4. When everything passes, the assistant commits what the run changed and
+//     pushes it to GitHub, so the person never has to. It's asked once for each
+//     request from the person, and only after the review, which reads the
+//     uncommitted changes. In Copilot, lbbexley-check offers the commit and push
+//     as a handover instead.
 //
 // Deleting a file is a change too: this run's deletions are reviewed and
 // committed with the rest. Copilot doesn't tell the gate whether lbbexley-check
@@ -24,8 +29,9 @@
 // asking again: the review's report starts a turn of its own, and the gate runs
 // again at the end of that turn.
 //
-// Plan mode is left alone. Two limits stop it going round in circles, and in
-// both cases the person is told what's outstanding:
+// Plan mode is left alone. Limits stop it going round in circles, and in each
+// case the person is told what's outstanding:
+//   - a sync that still hasn't happened after three requests
 //   - standards problems that are still there after three attempts
 //   - reviewer problems the assistant has explained rather than fixed. These
 //     are then the person's to decide, so they aren't raised again unless a
@@ -41,7 +47,7 @@ const path = require('path');
 const { readStdin, normalise, harness, blockStop, allowStop } = require('./lib/hook-io');
 const { loadStandards, isBexleyProject } = require('./lib/config');
 const { checkPath, isCheckable, isIgnoredPath, loadIgnoreFile, ignoreRulesFor } = require('./lib/checks');
-const { changedFiles, deletedFiles, workingDiff } = require('./lib/git');
+const { changedFiles, deletedFiles, hasRemote, workingDiff } = require('./lib/git');
 const { stateDir, load, save, hashFile, unreviewed } = require('./lib/state');
 
 const MAX_SAME_HOLDS = 3;
@@ -137,6 +143,33 @@ function writeReviewRequest(root, files, deleted, sessionId) {
   const deleted = new Set(deletedNow);
   const deletedToReview = deletedNow.filter(rel => isCheckable(rel) && !isIgnoredPath(rel, cfg));
 
+  // 0. The latest version from the dev environment, before anything is checked.
+  const env = state.environment || {};
+  const outside = (env.canvasFolders || []).filter(dir => !/^src\/canvas\//.test(dir));
+  if (env.pending || outside.length) {
+    const what = (env.changes || []).length ? env.changes.join(', ') : 'the canvas app';
+    env.syncAsks = (env.syncAsks || 0) + 1;
+    if (env.syncAsks > MAX_SAME_HOLDS) {
+      state.environment = { ...env, pending: false, changes: [], canvasFolders: [], syncAsks: 0 };
+      save(root, input.sessionId, state);
+      allowStop(`Bexley end-of-run check: this run changed ${what} in the dev environment, but the latest version hasn't come into the repository, so it isn't reviewed, committed or pushed yet. Ask the assistant to sync the solution into src/solution once pac is connected to the dev environment.`);
+      return;
+    }
+    const lines = [`Before finishing, bring the latest version from the dev environment into the repository: this run changed ${what} there.`];
+    if (env.pending) {
+      lines.push('- Run pac solution sync in src/solution. If there\'s no src/solution yet, clone the solution named in AGENTS.md into it first with pac solution clone.');
+    }
+    if (outside.length) {
+      lines.push(`- The canvas app was compiled from ${outside.join(', ')}. Move its .pa.yaml files into src/canvas/<app name>/, so the repository has them, and use that folder with Microsoft's canvas tools from now on.`);
+      env.canvasFolders = (env.canvasFolders || []).filter(dir => /^src\/canvas\//.test(dir));
+    }
+    lines.push('Don\'t edit the synced files by hand: to change something, change it in the dev environment and sync again. Then the check, the review and the commit follow.');
+    state.environment = env;
+    save(root, input.sessionId, state);
+    blockStop(lines.join('\n'));
+    return;
+  }
+
   // 1. The standards check.
   const ignoreEntries = loadIgnoreFile(root);
   const problems = [];
@@ -175,8 +208,11 @@ function writeReviewRequest(root, files, deleted, sessionId) {
     if (reviewOn && !copilot && !capped && toCommit.length && state.commitAskedFor !== askedFor) {
       state.commitAskedFor = askedFor;
       save(root, input.sessionId, state);
+      const saveIt = hasRemote(root)
+        ? `commit the ${toCommit.length} file(s) this run changed, on the current branch, with a short message saying what changed, then push it to GitHub with git push, and tell the person it's committed and pushed. If the push fails, tell them why. Don't make a branch or open a pull request unless they asked:`
+        : `commit the ${toCommit.length} file(s) this run changed, on the current branch, with a short message saying what changed, and tell the person it's committed. There's no remote to push it to. Don't make a branch or open a pull request unless they asked:`;
       blockStop([
-        `Bexley end-of-run check passed. Now save the work, as AGENTS.md says: commit the ${toCommit.length} file(s) this run changed, on the current branch, with a short message saying what changed, and tell the person it's committed. Don't make a branch, push or open a pull request unless they asked:`,
+        `Bexley end-of-run check passed. Now save the work, as AGENTS.md says: ${saveIt}`,
         ...listed(toCommit, deleted),
       ].join('\n'));
       return;
@@ -254,6 +290,8 @@ function writeReviewRequest(root, files, deleted, sessionId) {
     reason = [
       `Not finished: the Bexley standards check found ${problems.length} problem(s) in files changed in this run. The definition of done is zero findings, however minor. Fix every one, then finish:`,
       ...problems,
+      ...(problems.some(p => p.startsWith('- src/solution/')) ? ['Problems in src/solution came from the dev environment: fix them there, then sync again, rather than editing the synced files.'] : []),
+      ...(problems.some(p => p.startsWith('- src/canvas/')) ? ['For the canvas app, fix its .pa.yaml in src/canvas/ and compile it into the app with Microsoft\'s canvas tools, so the app and the repository match.'] : []),
     ].join('\n');
   } else if (stillOpen.length) {
     reason = [

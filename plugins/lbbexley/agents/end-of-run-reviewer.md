@@ -21,7 +21,8 @@ If the changes are documents only (nothing under `src/`), check them for content
 - **Data.** Personal data the service doesn't need. Personal data in logs, error messages, email subjects or flow run history (Secure inputs and outputs). One email per person.
 - **Publicity and AI.** Content clearly from the London Borough of Bexley. Nothing political. Agents that say they're automated and offer a person.
 - **Conventions.** Control, variable, flow and action names. Environment variables instead of hard-coded values.
-- **Tests and documents.** New screens or pages added to `tests/accessibility/targets.json`. A screen built as source only, with no app in an environment to open yet (the dev environment in `AGENTS.md` is "none yet", or the plan says so), can't be added yet: that's not a problem. New agent topics added to `tests/agent-test-set.md`. Compliance documents updated if the service changed.
+- **Tests and documents.** New screens or pages added to `tests/accessibility/targets.json`. New agent topics added to `tests/agent-test-set.md`. Compliance documents updated if the service changed.
+- **The dev environment and the repository match.** Files under `src/solution` come from the dev environment: report hand edits there. A canvas app's source in `src/canvas/` changed in this run should have been compiled into the app.
 
 Only report something as a problem if you can point to the file and say what's wrong. If you're unsure, leave it out.
 

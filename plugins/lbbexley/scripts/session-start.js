@@ -28,7 +28,7 @@ const { deletedFiles } = require('./lib/git');
 
   const review = harness() === 'copilot' ? 'the lbbexley-review skill' : '/lbbexley:review';
   const parts = [
-    `Bexley standards are active: dev environments and fictional data only. Work in three steps: plan (strongest model, plan mode), build, then the end-of-run check on a smaller model, which runs automatically before you finish. Once the check is clean, the work is committed. Zero standards findings of any severity is the definition of done; run ${review} before a story is done.`,
+    `Bexley standards are active: dev environments and fictional data only. Build in the dev environment with Microsoft's tools, never as files on their own. Work in three steps: plan (strongest model, plan mode), build, then the end-of-run check on a smaller model, which runs automatically before you finish: it brings the latest version into the repository, has it reviewed, then committed and pushed. Zero standards findings of any severity is the definition of done; run ${review} before a story is done.`,
   ];
 
   try {
