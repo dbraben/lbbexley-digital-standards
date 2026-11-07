@@ -111,6 +111,11 @@ function appendIdeas(root, ideas, sessionId) {
   const state = load(root, input.sessionId);
   const rel = f => String(f || '').replace(/\\/g, '/').replace(/^\.\//, '');
 
+  // A stop with no readable report, when no review is waiting to be marked, is
+  // a late or repeated notice for a review already recorded (a background
+  // review can stop more than once). It must not overwrite that result.
+  if (!report && !state.pendingReview) return;
+
   state.reviewFinishedAt = Date.now();
 
   // A report that can't be read is an incomplete review, not a clean one: no
