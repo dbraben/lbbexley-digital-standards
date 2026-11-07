@@ -25,10 +25,22 @@ function load(root, sessionId) {
   }
 }
 
+// The stop gate and the review recorder both read, change and save this file.
+// A copy read before the recorder saved would otherwise put the review's start
+// and finish times back, so the later of the two is kept.
+const REVIEW_TIMES = ['reviewStartedAt', 'reviewFinishedAt'];
+
 function save(root, sessionId, state) {
   try {
     fs.mkdirSync(stateDir(root), { recursive: true });
-    fs.writeFileSync(fileFor(root, sessionId), JSON.stringify(state, null, 2));
+    const file = fileFor(root, sessionId);
+    try {
+      const onDisk = JSON.parse(fs.readFileSync(file, 'utf8'));
+      for (const key of REVIEW_TIMES) state[key] = Math.max(Number(state[key]) || 0, Number(onDisk[key]) || 0) || state[key];
+    } catch {
+      // No earlier copy to compare with.
+    }
+    fs.writeFileSync(file, JSON.stringify(state, null, 2));
   } catch {
     // State is a convenience; the pull request check is the backstop.
   }

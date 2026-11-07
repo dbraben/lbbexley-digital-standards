@@ -77,9 +77,11 @@ function fingerprint(parts) {
 // start and finish times the review recorder keeps.
 function reviewRunning(raw, state) {
   const tasks = raw.background_tasks ?? raw.backgroundTasks;
-  if (Array.isArray(tasks)) {
-    return tasks.some(t => t && REVIEWER.test(String(t.agent_type ?? t.agentType ?? '')) && !FINISHED.test(String(t.status || '')));
+  if (Array.isArray(tasks) && tasks.some(t => t && REVIEWER.test(String(t.agent_type ?? t.agentType ?? '')) && !FINISHED.test(String(t.status || '')))) {
+    return true;
   }
+  // The list may not include subagents at all, so a list without the reviewer
+  // doesn't mean it isn't running: use the times the recorder kept.
   const started = Number(state.reviewStartedAt) || 0;
   const finished = Number(state.reviewFinishedAt) || 0;
   return started > finished && Date.now() - started < REVIEW_TIMEOUT_MS;

@@ -760,3 +760,40 @@ test('stop gate: the review request says whether src/solution came from a sync',
   assert.match(JSON.parse(stop(dir).stdout).reason, /end-of-run-reviewer/);
   assert.match(request(), /brought in with pac solution sync in this session/);
 });
+
+test('end-of-run record: a late notice with no report does not overwrite a review already recorded', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
+  write(dir, 'src/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', 'BexleyPanel'));
+  saved(dir, 'src/Home.pa.yaml');
+  stop(dir);
+  reviewerDone(dir, report({ work: [], harness: [] }));
+  assert.equal(state(dir).lastReview.readable, true);
+  reviewerDone(dir, 'The agent finished. Its report was delivered in an earlier message.');
+  assert.equal(state(dir).lastReview.readable, true, 'the recorded review is kept');
+  assert.ok(Object.keys(state(dir).reviewed).length > 0, 'the reviewed files stay marked');
+});
+
+test('state: the review start and finish times survive a save from a copy read earlier', () => {
+  const { save, load } = require('../plugins/lbbexley/scripts/lib/state.js');
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
+  const first = load(dir, 's9');
+  first.reviewStartedAt = 1000;
+  first.reviewFinishedAt = 2000;
+  save(dir, 's9', first);
+  const stale = { edited: [], reviewed: {}, openItems: [], blocks: 0, lastFingerprint: '', reviewRequested: '' };
+  save(dir, 's9', stale);
+  const after = load(dir, 's9');
+  assert.equal(after.reviewStartedAt, 1000);
+  assert.equal(after.reviewFinishedAt, 2000);
+});
+
+test('stop gate: a background task list that leaves subagents out does not hide a review that is running', () => {
+  const dir = gitRepo({ 'src/Home.pa.yaml': GOOD_CANVAS });
+  write(dir, 'src/Home.pa.yaml', GOOD_CANVAS.replace('BexleyWhite', 'BexleyPanel'));
+  saved(dir, 'src/Home.pa.yaml');
+  stop(dir);
+  reviewerStarted(dir);
+  const waiting = JSON.parse(stop(dir, { stop_hook_active: true, background_tasks: [] }).stdout);
+  assert.equal(waiting.decision, undefined, 'not sent back to start another review');
+  assert.match(waiting.systemMessage, /still running/);
+});

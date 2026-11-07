@@ -2,6 +2,14 @@
 
 All notable changes to the Bexley digital standards. Versions follow `major.minor.patch`: a new rule that can fail existing builds is a minor version at least.
 
+## Unreleased
+
+Fixes to the end-of-run check, which kept asking for reviews and reported "the review didn't finish" after a review had finished:
+
+- **A late notice no longer overwrites a recorded review.** A background review can stop more than once, and the second notice carries no report. It used to mark the review as unreadable. It is now ignored when no review is waiting to be recorded.
+- **The review's start and finish times are kept.** The stop gate and the recorder both save the same state file, and an older copy could put the times back to empty. The later time is kept.
+- **A task list without subagents doesn't hide a running review.** The gate used the task list alone whenever one was given. It now also uses the recorded times.
+
 ## 0.6.1 – 5 November 2026
 
 Fixes from an end-to-end review of 0.6.0. There are no new rules, but two things change what a run does: flows and tables are added to the solution before the sync, and the end-of-run check now confirms the work was committed and pushed. A repository on 0.6.0 needs the changes under "Updating from 0.6.0".
