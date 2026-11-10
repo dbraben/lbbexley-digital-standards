@@ -82,7 +82,7 @@
 
 - [auto] Solutions use the `lbbexley` publisher prefix, not the default publisher
 - [auto] Canvas: no hard-coded colours outside App.Formulas
-- [auto] Flows with 3 or more actions have error handling
+- [auto] Every flow has Try and Catch scopes (Catch runs after Failed and Timed out)
 - [review] Controls, variables, flows and actions named to the conventions
 - [review] Canvas: delegation warnings fixed; OnStart minimal; IfError around writes
 - [review] Environment variables and connection references, not hard-coded values

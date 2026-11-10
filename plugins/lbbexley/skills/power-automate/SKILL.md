@@ -26,13 +26,13 @@ description: Bexley standards for Power Automate cloud flows - solutions, naming
 
 ## Error handling (enforced)
 
-Use the Try, Catch and Finally pattern for any flow with more than a couple of actions:
+Use the Try, Catch and Finally pattern in **every** flow, however small. The council requires it:
 
 1. **Try** scope: the work.
-2. **Catch** scope, set to run after Try has failed or timed out: notify the support team's shared channel or mailbox with the flow name, run link and failed action (no personal data), then Terminate with status Failed.
+2. **Catch** scope, set to run after Try has **both Failed and Timed out**: notify the support team's shared channel or mailbox with the flow name, run link and failed action (no personal data), then Terminate with status Failed.
 3. **Finally** scope (optional): tidy-up that must always happen.
 
-The standards check warns when a flow with 3 or more actions has nothing that runs after a failure.
+The standards check reports an error when a flow has no Try scope, or no Catch scope that runs after the Try scope has failed or timed out.
 
 ## Personal data
 

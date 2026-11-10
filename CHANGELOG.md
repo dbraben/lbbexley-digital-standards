@@ -2,9 +2,15 @@
 
 All notable changes to the Bexley digital standards. Versions follow `major.minor.patch`: a new rule that can fail existing builds is a minor version at least.
 
-## Unreleased
+## 0.7.0 – date to be set at release
 
-Fixes to the end-of-run check, which kept asking for reviews and reported "the review didn't finish" after a review had finished:
+**Try and Catch in every flow (stricter rule).** The council asked for Try, Catch and Finally scopes in every Power Automate flow, as a higher standard. Before, the pattern was asked for only in flows of 3 or more actions, and the check gave a warning when nothing ran after a failure.
+
+- `flow-error-handling` is now an **error**, and applies to every flow with at least one action. A flow needs a Scope (Try) and a Scope (Catch) whose run-after is the Try scope with both Failed and Timed out. An action that merely runs after a failure no longer counts.
+- The power-automate skill, the flow path rules and the review checklist say "every flow".
+- Existing flows that passed may now fail: wrap their steps in a Try scope and add a Catch scope.
+
+Also in this release: fixes to the end-of-run check, which kept asking for reviews and reported "the review didn't finish" after a review had finished:
 
 - **A late notice no longer overwrites a recorded review.** A background review can stop more than once, and the second notice carries no report. It used to mark the review as unreadable. It is now ignored when no review is waiting to be recorded.
 - **The review's start and finish times are kept.** The stop gate and the recorder both save the same state file, and an older copy could put the times back to empty. The later time is kept.

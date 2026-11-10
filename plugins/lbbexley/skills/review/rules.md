@@ -41,7 +41,7 @@ To suppress a finding that genuinely doesn't apply, put `lbbexley-ignore: <rule>
 | `css-contrast` | error | 1.4.3 | CSS text and background pairs below 4.5:1 |
 | `css-focus-hidden` | error | 2.4.7 | Focus styles that remove the outline with no replacement |
 | `card-image-alt` | error | 1.1.1 | Adaptive card images without altText |
-| `flow-error-handling` | warning |  | Flows with no Catch scope for failures |
+| `flow-error-handling` | error |  | Flows without a Try scope and a Catch scope that runs after Failed and Timed out |
 | `flow-hardcoded-mailbox` | warning |  | Hard-coded @bexley.gov.uk mailboxes in flows |
 | `solution-prefix` | error |  | Solutions with a publisher prefix other than lbbexley |
 | `solution-default-publisher` | error |  | Solutions that use the default publisher |

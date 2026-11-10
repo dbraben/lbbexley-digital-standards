@@ -392,8 +392,8 @@ test('flows: error handling, hard-coded mailboxes and email images without alt t
   }, null, 2);
   assert.deepEqual(rules(checkContent('src/Workflows/Permits-1234.json', flow, cfg)).sort(), ['flow-error-handling', 'flow-hardcoded-mailbox', 'html-img-alt']);
   const handled = JSON.parse(flow);
-  handled.properties.definition.actions.Catch = { type: 'Scope', runAfter: { Send_confirmation: ['Failed', 'TimedOut'] } };
-  handled.properties.definition.actions.Send_confirmation.inputs.body = '<img src="logo.png" alt="London Borough of Bexley">';
+  handled.properties.definition.actions = { Try: { type: 'Scope', runAfter: {}, actions: handled.properties.definition.actions }, Catch: { type: 'Scope', runAfter: { Try: ['Failed', 'TimedOut'] } } };
+  handled.properties.definition.actions.Try.actions.Send_confirmation.inputs.body = '<img src="logo.png" alt="London Borough of Bexley">';
   assert.deepEqual(rules(checkContent('src/Workflows/Permits-1234.json', JSON.stringify(handled), cfg)), ['flow-hardcoded-mailbox']);
 });
 
@@ -527,4 +527,24 @@ test('command line: --changed checks only what git says has changed, and --relea
 
   const release = run(CLI, ['--root', dir, '--release', '--changed']);
   assert.match(release.stdout, /docs\/compliance\/retention\.md:3\s+error\s+compliance-incomplete/);
+});
+
+test('flows: every flow needs a Try scope and a Catch scope that runs after Failed and Timed out', () => {
+  const mk = actions => JSON.stringify({ properties: { definition: { actions } } });
+  const check = actions => rules(checkContent('src/Workflows/Small-1.json', mk(actions), cfg));
+  assert.deepEqual(check({ Only: { type: 'Compose', runAfter: {} } }), ['flow-error-handling']);
+  assert.deepEqual(check({
+    Only: { type: 'Compose', runAfter: {} },
+    Tidy: { type: 'Compose', runAfter: { Only: ['Failed'] } },
+  }), ['flow-error-handling']);
+  assert.deepEqual(check({
+    Try: { type: 'Scope', runAfter: {}, actions: {} },
+    Catch: { type: 'Scope', runAfter: { Try: ['Failed'] } },
+  }), ['flow-error-handling']);
+  assert.deepEqual(check({
+    Try: { type: 'Scope', runAfter: {}, actions: {} },
+    Catch: { type: 'Scope', runAfter: { Try: ['Failed', 'TimedOut'] } },
+    Finally: { type: 'Scope', runAfter: { Try: ['Succeeded', 'Failed', 'TimedOut', 'Skipped'] } },
+  }), []);
+  assert.deepEqual(rules(checkContent('src/Workflows/Bad-1.json', '{ not json', cfg)), []);
 });
