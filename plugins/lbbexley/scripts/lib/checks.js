@@ -61,7 +61,7 @@ const RULES = {
   'css-contrast': { severity: 'error', wcag: '1.4.3', about: 'CSS text and background pairs below 4.5:1' },
   'css-focus-hidden': { severity: 'error', wcag: '2.4.7', about: 'Focus styles that remove the outline with no replacement' },
   'card-image-alt': { severity: 'error', wcag: '1.1.1', about: 'Adaptive card images without altText' },
-  'flow-error-handling': { severity: 'warning', about: 'Flows with no Catch scope for failures' },
+  'flow-error-handling': { severity: 'error', about: 'Flows without a Try scope and a Catch scope that runs after Failed and Timed out' },
   'flow-hardcoded-mailbox': { severity: 'warning', about: 'Hard-coded @bexley.gov.uk mailboxes in flows' },
   'solution-prefix': { severity: 'error', about: 'Solutions with a publisher prefix other than lbbexley' },
   'solution-default-publisher': { severity: 'error', about: 'Solutions that use the default publisher' },
@@ -763,26 +763,27 @@ function checkFlow(r, content, cfg) {
   }
   const def = (json.properties && json.properties.definition) || json.definition;
   if (!def || !def.actions) return;
-  let count = 0;
-  let handled = false;
-  const walk = actions => {
-    for (const a of Object.values(actions || {})) {
-      if (!a || typeof a !== 'object') continue;
-      count += 1;
-      for (const v of Object.values(a.runAfter || {})) {
-        if (Array.isArray(v) && v.some(s => /failed|timedout/i.test(String(s)))) handled = true;
-      }
-      walk(a.actions);
-      if (a.else) walk(a.else.actions);
-      if (a.cases) for (const c of Object.values(a.cases)) walk(c && c.actions);
-      if (a.default) walk(a.default.actions);
+  const top = def.actions;
+  const names = Object.keys(top);
+  if (names.length > 0) {
+    const scopes = names.filter(n => top[n] && /^scope$/i.test(String(top[n].type)));
+    const caught = scopes.some(n => {
+      const ra = top[n].runAfter || {};
+      return Object.entries(ra).some(([prev, states]) => {
+        const upstream = top[prev];
+        if (!upstream || !/^scope$/i.test(String(upstream.type))) return false;
+        const st = (Array.isArray(states) ? states : []).map(x => String(x).toLowerCase());
+        return st.includes('failed') && st.includes('timedout');
+      });
+    });
+    let problem = '';
+    if (scopes.length === 0) problem = 'No Try scope: put the flow\'s main steps inside a Scope action called Try.';
+    else if (!caught) problem = 'No Catch scope: add a Scope action called Catch that runs after the Try scope has Failed and Timed out.';
+    if (problem) {
+      r.add('flow-error-handling', 'error',
+        problem + ' Every flow needs Try and Catch scopes; the Catch scope tells the support team without personal data (power-automate skill).',
+        { line: 1 });
     }
-  };
-  walk(def.actions);
-  if (count >= 3 && !handled) {
-    r.add('flow-error-handling', 'warning',
-      'No error handling: put the main steps in a Try scope, add a Catch scope set to run after Failed or Timed out, and notify the support mailbox (power-automate skill).',
-      { line: 1 });
   }
   for (const m of content.matchAll(/"[^"\n]*\b[A-Za-z0-9._%+-]+@bexley\.gov\.uk\b[^"\n]*"/gi)) {
     r.add('flow-hardcoded-mailbox', 'warning',

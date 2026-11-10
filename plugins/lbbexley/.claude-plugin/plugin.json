@@ -2,7 +2,7 @@
   "name": "lbbexley",
   "displayName": "Bexley Digital standards",
   "description": "London Borough of Bexley standards for Power Platform builds: brand, accessibility, content style, publicity, data protection, equality and AI transparency, plus reviewers and guardrails.",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "author": {
     "name": "London Borough of Bexley Digital Team"
   },

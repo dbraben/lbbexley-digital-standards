@@ -9,7 +9,7 @@ paths:
 
 Use the power-automate, data-protection and content-style skills. These rules always apply:
 
-- Try, Catch and Finally scopes; the Catch scope runs after Failed or Timed out and alerts the support team without personal data.
+- Every flow, however small: a Try scope and a Catch scope (plus a Finally scope where tidy-up must always happen). The Catch scope runs after both Failed and Timed out and alerts the support team without personal data.
 - Secure inputs and Secure outputs on actions that handle personal data.
 - Mailboxes, URLs and IDs come from environment variables (prefix `lbbexley_`), never hard-coded.
 - Rename every action to say what it does. One email per person, sent from a shared mailbox, with no personal data in the subject.
