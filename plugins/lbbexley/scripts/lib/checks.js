@@ -777,11 +777,11 @@ function checkFlow(r, content, cfg) {
       });
     });
     let problem = '';
-    if (scopes.length === 0) problem = 'No Try scope: put the flow\'s main steps inside a Scope action named Try.';
-    else if (!caught) problem = 'No Catch scope: add a Scope named Catch that runs after the Try scope has Failed and Timed out.';
+    if (scopes.length === 0) problem = 'No Try scope: put the flow\'s main steps inside a Scope action called Try.';
+    else if (!caught) problem = 'No Catch scope: add a Scope action called Catch that runs after the Try scope has Failed and Timed out.';
     if (problem) {
       r.add('flow-error-handling', 'error',
-        problem + ' Every flow needs Try, Catch and Finally scopes; the Catch scope tells the support team without personal data (power-automate skill).',
+        problem + ' Every flow needs Try and Catch scopes; the Catch scope tells the support team without personal data (power-automate skill).',
         { line: 1 });
     }
   }
